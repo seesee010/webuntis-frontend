@@ -1,0 +1,42 @@
+.tt-page { max-width: none; }
+.tt-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tt-label { margin-left: 8px; }
+.tt-grid-wrap { transition: opacity var(--transition); overflow-x: auto; }
+.tt-grid-wrap.loading { opacity: 0.55; }
+.tt-grid {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); grid-template-columns: 56px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 0 8px 12px 0; font-size: calc(1em * var(--tt-font, 1));
+}
+.tt-col { min-width: 0; }
+.tt-time-col { position: sticky; left: 0; background: var(--surface); z-index: 3; }
+.tt-dayhead { height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+.tt-dayhead.today { color: var(--accent); }
+.tt-dow { font-weight: 650; text-transform: capitalize; }
+.tt-date { font-size: 0.8em; color: var(--muted); }
+.tt-dayhead.today .tt-date { color: inherit; }
+.tt-times, .tt-day { position: relative; }
+.tt-mark { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); }
+.tt-mark.hour { justify-content: flex-start; font-size: 0.75em; transform: translateY(-0.6em); }
+.tt-mark-label { font-weight: 650; font-size: 0.9em; }
+.tt-mark-sub { font-size: 0.68em; white-space: pre; text-align: center; line-height: 1.2; }
+.tt-day { border-left: 1px solid var(--border); }
+.tt-day.today { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.tt-rowline { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, var(--border) 70%, transparent); pointer-events: none; }
+.tt-lesson {
+  position: absolute; overflow: hidden; text-align: left; cursor: pointer; border-top: 0; border-right: 0; border-bottom: 0;
+  font: inherit; color: inherit; gap: 1px; transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
+}
+.tt-lesson:hover { transform: translateY(-1px); box-shadow: var(--shadow); z-index: 2; }
+.tt-lesson.past { opacity: 0.5; }
+.tt-subject { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tt-meta { font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.tt-meta.changed { color: var(--c-substitution); font-weight: 650; }
+[data-status-style="fill"] .tt-meta, [data-status-style="fill"] .tt-meta.changed { color: rgb(255 255 255 / 0.85); }
+.tt-badge { font-size: 0.7em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--c); margin-top: auto; }
+[data-status-style="fill"] .tt-badge { color: #fff; }
+.st-regular .tt-badge { display: none; }
+.tt-grid.compact .tt-lesson { padding: 2px 5px; flex-direction: row; flex-wrap: wrap; column-gap: 6px; align-content: flex-start; }
+.tt-now { position: absolute; left: -4px; right: 0; height: 2px; background: var(--bad); z-index: 4; pointer-events: none; }
+.tt-now::before { content: ""; position: absolute; left: 0; top: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+.tt-holiday { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); font-weight: 600; background: repeating-linear-gradient(45deg, transparent 0 10px, color-mix(in srgb, var(--border) 40%, transparent) 10px 20px); }
