@@ -1,4 +1,4 @@
-import type { Element, Lesson } from "./api/types";
+import type { Element, Exam, Homework, Lesson } from "./api/types";
 import type { SettingsStore } from "./settings";
 
 /**
@@ -41,6 +41,16 @@ export class Display {
   /** Lessons the user wants to see (subject filters hook in here). */
   visibleLessons(lessons: Lesson[]): Lesson[] {
     return lessons;
+  }
+
+  /** Exams the user wants to see. */
+  visibleExams(exams: Exam[]): Exam[] {
+    return exams;
+  }
+
+  /** Homework the user wants to see. */
+  visibleHomework(items: Homework[]): Homework[] {
+    return items;
   }
 
   /** Per-subject look; empty unless the user customised the subject. */

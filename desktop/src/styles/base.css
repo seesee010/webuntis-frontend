@@ -250,3 +250,34 @@ textarea.input { width: 100%; resize: vertical; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
 .el.removed { text-decoration: line-through; color: var(--muted); }
 .el.changed { color: var(--c-substitution); font-weight: 600; }
+
+/* --- list views ----------------------------------------------------------- */
+.list-page { display: flex; flex-direction: column; gap: calc(16px * var(--space)); }
+.list-row {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: calc(10px * var(--space)) 4px; border: 0; border-top: 1px solid var(--border); background: transparent;
+}
+.card-title + .list-row, .list-group + .list-row { border-top: 0; }
+button.list-row { cursor: pointer; }
+button.list-row:hover { background: var(--surface-2); }
+.list-row.past, .hw-done { opacity: 0.55; }
+.list-row.soon { box-shadow: inset 3px 0 0 var(--c-exam); padding-left: 10px; }
+.list-row.unexcused strong:first-child, .list-row.current strong { color: var(--bad); }
+.list-row.current strong { color: var(--warn); }
+.list-row.unread strong { font-weight: 750; }
+.list-date { display: flex; flex-direction: column; min-width: 110px; font-variant-numeric: tabular-nums; }
+.list-date.right { align-items: flex-end; min-width: 90px; }
+.list-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.list-group { margin: 14px 0 4px; font-size: 0.8em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.hw-text { white-space: pre-wrap; }
+.hw-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.hw-done .hw-text { text-decoration: line-through; }
+.check { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+.attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.grade { font-weight: 800; font-size: 1.2em; padding: 0 8px; border-radius: var(--radius-sm); background: var(--surface-2); }
+.chip-warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.chip-ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.chip-bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+.bad { color: var(--bad); }
+.stats.four { grid-template-columns: repeat(4, 1fr); }
+.countdown { display: flex; align-items: center; gap: 14px; }
