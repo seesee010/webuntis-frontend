@@ -1,0 +1,24 @@
+# Go
+/backend/bin/
+*.test
+*.out
+
+# Node / Vite
+node_modules/
+/desktop/dist/
+
+# Tauri
+/desktop/src-tauri/target/
+/desktop/src-tauri/binaries/
+/desktop/src-tauri/gen/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Never commit personal data from the CLI
+out/
+sessions/
+.env
