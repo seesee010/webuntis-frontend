@@ -239,3 +239,14 @@ textarea.input { width: 100%; resize: vertical; }
 .preset:hover { border-color: var(--accent); }
 .preset-swatch { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
 .preset-swatch > span { width: 10px; height: 10px; border-radius: 50%; }
+
+/* --- dialogs ------------------------------------------------------------ */
+.dialog { border: 1px solid var(--border); border-radius: var(--radius); padding: 0; width: min(480px, 92vw); background: var(--surface); color: var(--text); box-shadow: 0 20px 50px rgb(0 0 0 / 0.25); }
+.dialog.wide { width: min(760px, 94vw); }
+.dialog::backdrop { background: rgb(0 0 0 / 0.35); backdrop-filter: blur(2px); }
+.dialog-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--border); }
+.dialog-title { flex: 1; font-weight: 650; font-size: 1.05em; }
+.dialog-body { padding: 8px 18px 16px; max-height: 70vh; overflow: auto; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.el.removed { text-decoration: line-through; color: var(--muted); }
+.el.changed { color: var(--c-substitution); font-weight: 600; }

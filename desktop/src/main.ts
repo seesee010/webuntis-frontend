@@ -2,6 +2,7 @@ import "./styles/base.css";
 import { ApiClient, discoverConnection } from "./core/api/client";
 import { createBus, type AppContext } from "./core/app";
 import { DataService } from "./core/data";
+import { Display } from "./core/display";
 import { h, replace } from "./core/dom";
 import { ModuleRegistry } from "./core/module";
 import { Router } from "./core/router";
@@ -16,14 +17,16 @@ async function boot(root: HTMLElement): Promise<void> {
 
   const api = new ApiClient(await discoverConnection());
   const bus = createBus();
+  const settings = new SettingsStore(api);
   const ctx: AppContext = {
     api,
     bus,
     data: new DataService(api, bus),
-    settings: new SettingsStore(api),
+    settings,
     router: new Router(),
     modules: new ModuleRegistry(),
     toasts: new Toasts(),
+    display: new Display(settings),
   };
   ctx.modules.register(...modules);
   registerDefaults(ctx);

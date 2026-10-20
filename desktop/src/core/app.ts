@@ -2,6 +2,7 @@ import type { ApiClient } from "./api/client";
 import type { Change } from "./api/types";
 import { Bus } from "./bus";
 import type { DataService } from "./data";
+import type { Display } from "./display";
 import type { ModuleRegistry } from "./module";
 import type { Router } from "./router";
 import type { SettingsStore } from "./settings";
@@ -26,6 +27,7 @@ export interface AppContext {
   router: Router;
   modules: ModuleRegistry;
   toasts: Toasts;
+  display: Display;
 }
 
 export function createBus(): Bus<AppEvents> {
