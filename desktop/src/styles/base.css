@@ -214,3 +214,28 @@ textarea.input { width: 100%; resize: vertical; }
 .chip.editable { padding-right: 2px; color: var(--text); }
 .chip-x { border: 0; background: transparent; cursor: pointer; padding: 2px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); }
 .chip-x:hover { color: var(--bad); }
+
+/* --- lesson status boxes ------------------------------------------------
+ * Any element with .status-box and --c set to a status colour is drawn in
+ * the style chosen under Appearance > Lesson colours. */
+.status-box {
+  --c: var(--c-regular);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  display: flex; flex-direction: column; min-width: 0;
+  background: color-mix(in srgb, var(--c) 14%, var(--surface));
+  border-left: 3px solid var(--c);
+}
+[data-status-style="fill"] .status-box { background: var(--c); color: #fff; border-left-color: transparent; }
+[data-status-style="fill"] .status-box .muted { color: rgb(255 255 255 / 0.8); }
+[data-status-style="border"] .status-box { background: var(--surface); border: 2px solid var(--c); }
+[data-status-style="stripe"] .status-box { background: var(--surface-2); border-left-width: 6px; }
+.status-box.struck strong { text-decoration: line-through; }
+[data-animations="off"] *, [data-animations="off"] *::before, [data-animations="off"] *::after { animation: none !important; transition: none !important; }
+
+.status-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.preset-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.preset { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; }
+.preset:hover { border-color: var(--accent); }
+.preset-swatch { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; }
+.preset-swatch > span { width: 10px; height: 10px; border-radius: 50%; }
