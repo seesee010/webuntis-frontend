@@ -22,6 +22,16 @@ pub struct BackendInfo {
 
 type Handshake = Result<BackendInfo, String>;
 
+/// Parses the first complete line of the sidecar's stdout. Returns None
+/// while no full line has arrived yet.
+fn parse_handshake(buf: &str) -> Option<Handshake> {
+    let (line, _) = buf.split_once('\n')?;
+    Some(
+        serde_json::from_str::<BackendInfo>(line.trim())
+            .map_err(|e| format!("unexpected handshake from untisd: {e}")),
+    )
+}
+
 /// Shared state: the handshake (once known) and the running child.
 struct Backend {
     info: watch::Receiver<Option<Handshake>>,
@@ -59,9 +69,7 @@ fn spawn_backend(app: &tauri::AppHandle) -> Result<(CommandChild, watch::Receive
             match ev {
                 CommandEvent::Stdout(bytes) if !ready => {
                     buf.push_str(&String::from_utf8_lossy(&bytes));
-                    if let Some(line) = buf.lines().next().filter(|_| buf.contains('\n')) {
-                        let parsed = serde_json::from_str::<BackendInfo>(line)
-                            .map_err(|e| format!("unexpected handshake from untisd: {e}"));
+                    if let Some(parsed) = parse_handshake(&buf) {
                         ready = true;
                         let _ = tx.send(Some(parsed));
                     }
@@ -110,4 +118,30 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn waits_for_a_full_line() {
+        assert!(parse_handshake(r#"{"port": 1"#).is_none());
+    }
+
+    #[test]
+    fn parses_the_first_line() {
+        let info = parse_handshake("{\"port\":41234,\"token\":\"abc\",\"version\":\"dev\"}\r\nlog line\n")
+            .unwrap()
+            .unwrap();
+        assert_eq!(info.port, 41234);
+        assert_eq!(info.token, "abc");
+        assert_eq!(info.version, "dev");
+    }
+
+    #[test]
+    fn reports_garbage() {
+        let err = parse_handshake("panic: boom\n").unwrap().unwrap_err();
+        assert!(err.contains("unexpected handshake"));
+    }
 }

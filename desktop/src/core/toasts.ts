@@ -22,7 +22,7 @@ export class Toasts {
   show(kind: ToastKind, title: string, body?: string, timeout = 5000): number {
     const id = this.next++;
     this.list.update((l) => [...l, { id, kind, title, body, timeout }]);
-    if (timeout > 0) window.setTimeout(() => this.dismiss(id), timeout);
+    if (timeout > 0) setTimeout(() => this.dismiss(id), timeout);
     return id;
   }
 

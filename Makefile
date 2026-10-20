@@ -9,7 +9,7 @@ DESKTOP   := desktop
 TRIPLE    := $(shell rustc -vV 2>/dev/null | sed -n 's/^host: //p')
 SIDECAR   := $(DESKTOP)/src-tauri/binaries/untisd-$(TRIPLE)
 
-.PHONY: all dev app test lint build sidecar backend-test frontend-test clean
+.PHONY: all dev app test lint build sidecar backend-test frontend-test shell-test clean
 
 all: test
 
@@ -19,7 +19,12 @@ backend-test:
 frontend-test:
 	cd $(DESKTOP) && pnpm typecheck && pnpm test
 
-test: backend-test frontend-test
+# The shell needs the sidecar binary and a dist/ folder to compile.
+shell-test: sidecar
+	mkdir -p $(DESKTOP)/dist
+	cd $(DESKTOP)/src-tauri && cargo test --quiet
+
+test: backend-test frontend-test shell-test
 
 lint: backend-test
 	cd $(DESKTOP) && pnpm typecheck
