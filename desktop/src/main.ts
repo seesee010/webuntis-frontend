@@ -7,6 +7,7 @@ import { ModuleRegistry } from "./core/module";
 import { Router } from "./core/router";
 import { SettingsStore } from "./core/settings";
 import { Toasts } from "./core/toasts";
+import { registerDefaults } from "./core/schema";
 import { modules } from "./modules";
 import { mountShell } from "./shell/shell";
 
@@ -25,6 +26,7 @@ async function boot(root: HTMLElement): Promise<void> {
     toasts: new Toasts(),
   };
   ctx.modules.register(...modules);
+  registerDefaults(ctx);
   await ctx.settings.load();
   bus.on("settings-changed", () => void ctx.settings.reload());
 
