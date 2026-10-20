@@ -63,7 +63,7 @@ export class SettingsStore {
   private readonly doc = new Signal<SettingsDocument>({});
   private readonly defaults = new Map<Path, unknown>();
   private pending: SettingsDocument = {};
-  private timer: number | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private flushing: Promise<void> = Promise.resolve();
 
   constructor(private readonly api: ApiClient) {}
@@ -113,8 +113,8 @@ export class SettingsStore {
   set(path: Path, value: unknown): void {
     this.doc.set(setPath(this.doc.get(), path, value));
     this.pending = combinePatches(this.pending, patchFor(path, value ?? null));
-    window.clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => void this.flush(), 250);
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.flush(), 250);
   }
 
   reset(path: Path): void {
@@ -123,7 +123,7 @@ export class SettingsStore {
 
   /** Sends pending changes to the backend. */
   flush(): Promise<void> {
-    window.clearTimeout(this.timer);
+    clearTimeout(this.timer);
     const patch = this.pending;
     this.pending = {};
     if (Object.keys(patch).length === 0) return this.flushing;
