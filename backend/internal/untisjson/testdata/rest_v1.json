@@ -1,0 +1,43 @@
+{
+  "meta": {"school": "demo_school", "server": "demo", "user": "Sample Student",
+           "generated_at": "2026-10-05", "window": {"start": "2026-10-05", "end": "2026-10-06"}},
+  "timetable": {
+    "source": "rest_v1", "start": "2026-10-05", "end": "2026-10-06",
+    "own_classes": ["1A"],
+    "time_grid": [{"start": "08:45", "end": "09:35"}, {"start": "07:50", "end": "08:40"}],
+    "days": [
+      {"date": "2026-10-05", "status": "REGULAR", "entries": [
+        {"start": "2026-10-05T08:45", "end": "2026-10-05T09:35", "status": "CANCELLED",
+         "is_cancelled": true, "subjects": [{"short": "GEO", "long": "Geography"}],
+         "teachers": [{"short": "TCH2"}], "rooms": [{"short": "R101"}], "classes": [{"short": "1A"}]},
+        {"start": "2026-10-05T07:50", "end": "2026-10-05T08:40", "status": "CHANGED",
+         "is_substitution": true, "subjects": [{"short": "MATH", "long": "Mathematics"}],
+         "teachers": [{"short": "TCH3", "status": "CHANGED", "replaces": "TCH1"}],
+         "rooms": [{"short": "R102"}], "classes": [{"short": "1A"}]}
+      ]},
+      {"date": "2026-10-06", "status": "REGULAR", "entries": [
+        {"start": "2026-10-06T07:50", "end": "2026-10-06T09:35", "status": "REGULAR",
+         "is_event": true, "type": "EVENT", "info": "Museum visit",
+         "subjects": [], "teachers": [{"short": "TCH1"}], "rooms": [], "classes": []},
+        {"start": "2026-10-06T09:40", "end": "2026-10-06T10:30", "status": "ADDITIONAL",
+         "subjects": [{"short": "ENG"}], "teachers": [], "rooms": [], "classes": []}
+      ]}
+    ]
+  },
+  "exams": {"source": "api", "exams": [
+    {"id": 7, "date": "2026-10-09", "start_time": "09:40", "end_time": "10:30", "name": "Unit test",
+     "subjects": [{"short": "MATH", "long": null}], "teachers": [], "rooms": []}
+  ]},
+  "homework": {"source": "api", "items": [
+    {"id": "h1", "date": "2026-10-05", "due_date": "2026-10-07", "text": "Exercise 3",
+     "completed": false, "subjects": [{"short": "ENG"}], "teachers": [{"short": "TCH4"}],
+     "attachments": [{"id": 1, "name": "sheet.pdf"}, "notes.txt"]}
+  ]},
+  "absences": {"error": "403 Forbidden"},
+  "messages": {"source": "rest_v1", "items": [
+    {"id": 1, "subject": "Welcome", "from": "Office", "read": false, "has_attachments": true}
+  ]},
+  "holidays": {"source": "rest_v1", "items": [
+    {"id": 3, "name": "Autumn break", "start": "2026-10-26", "end": "2026-11-02"}
+  ]}
+}
