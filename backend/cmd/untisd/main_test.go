@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,5 +90,66 @@ func TestProcess(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		cmd.Process.Kill()
 		t.Fatal("untisd did not exit after stdin closed")
+	}
+}
+
+func TestBrowserCommand(t *testing.T) {
+	for goos, want := range map[string]string{"windows": "rundll32", "darwin": "open", "linux": "xdg-open", "freebsd": "xdg-open", "openbsd": "xdg-open"} {
+		if name, args := browserCommand(goos, "http://x/"); name != want || args[len(args)-1] != "http://x/" {
+			t.Errorf("%s: %s %v", goos, name, args)
+		}
+	}
+}
+
+// TestWebEdition starts untisd -web and fetches the page and the API with
+// the token from the page, like the browser does.
+func TestWebEdition(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a binary")
+	}
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "untisd")
+	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, out)
+	}
+	cmd := exec.Command(bin, "-web", "-no-browser", "-watch-stdin", "-settings", filepath.Join(dir, "settings.json"))
+	stdin, _ := cmd.StdinPipe()
+	stdout, _ := cmd.StdoutPipe()
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { stdin.Close(); _ = cmd.Wait() }()
+
+	var hello struct {
+		Port  int    `json:"port"`
+		Token string `json:"token"`
+	}
+	line, _ := bufio.NewReader(stdout).ReadString('\n')
+	if err := json.Unmarshal([]byte(line), &hello); err != nil {
+		t.Fatalf("handshake %q: %v", line, err)
+	}
+	base := fmt.Sprintf("http://127.0.0.1:%d", hello.Port)
+
+	res, err := http.Get(base + "/")
+	if err != nil || res.StatusCode != 200 {
+		t.Fatalf("page: %v %v", res, err)
+	}
+	page, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	// Without a built frontend the placeholder is served; with one the token is embedded.
+	if !strings.Contains(string(page), hello.Token) && !strings.Contains(string(page), "make web") {
+		t.Errorf("page has neither token nor placeholder: %s", page)
+	}
+
+	req, _ := http.NewRequest("GET", base+"/api/status", nil)
+	req.Header.Set("Authorization", "Bearer "+hello.Token)
+	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != 200 {
+		t.Errorf("api: %v %v", res, err)
+	}
+
+	req, _ = http.NewRequest("GET", base+"/", nil)
+	req.Host = "evil.example"
+	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != http.StatusMisdirectedRequest {
+		t.Errorf("rebinding host accepted: %v %v", res, err)
 	}
 }

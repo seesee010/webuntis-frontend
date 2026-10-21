@@ -22,3 +22,10 @@ node_modules/
 out/
 sessions/
 .env
+
+# Frontend copied into the backend for the web edition (make web)
+/backend/internal/webui/dist/*
+!/backend/internal/webui/dist/.keep
+
+# Release artefacts
+/release/

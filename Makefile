@@ -9,7 +9,7 @@ DESKTOP   := desktop
 TRIPLE    := $(shell rustc -vV 2>/dev/null | sed -n 's/^host: //p')
 SIDECAR   := $(DESKTOP)/src-tauri/binaries/untisd-$(TRIPLE)
 
-.PHONY: all dev backend-dev app test lint build sidecar backend-test frontend-test shell-test clean
+.PHONY: all dev backend-dev app web test lint build sidecar backend-test frontend-test shell-test clean
 
 all: test
 
@@ -39,6 +39,14 @@ backend-dev:
 
 dev:
 	cd $(DESKTOP) && pnpm dev
+
+# Web edition: one untisd binary with the frontend embedded (bin/untisd).
+WEBUI := $(BACKEND)/internal/webui/dist
+web:
+	cd $(DESKTOP) && pnpm build
+	find $(WEBUI) -mindepth 1 ! -name .keep -exec rm -rf {} +
+	cp -r $(DESKTOP)/dist/. $(WEBUI)/
+	cd $(BACKEND) && go build -trimpath -ldflags "-s -w" -o bin/untisd ./cmd/untisd
 
 app: sidecar
 	cd $(DESKTOP) && pnpm tauri dev
