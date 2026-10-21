@@ -5,11 +5,14 @@
 #   release.sh goarch TRIPLE      print "GOOS GOARCH [GOARM]" for a triple (used by tests)
 #   release.sh web GOOS GOARCH    pack the web edition for one platform into release/
 #   release.sh web-all            pack the web edition for every platform in WEB_TARGETS
+#   release.sh collect TRIPLE     copy Tauri bundles of a target into release/ and add portable archives
+#   release.sh notes VERSION      print the CHANGELOG section of VERSION (release notes)
 #   release.sh checksums          write release/SHA256SUMS
 #
 # The web edition embeds the frontend: run `make web` (or copy desktop/dist
 # into backend/internal/webui/dist) before `web`/`web-all`.
 set -euo pipefail
+export LC_ALL=C
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 VERSION=$(cat "$ROOT/VERSION")
@@ -69,10 +72,11 @@ sidecar() {
   mkdir -p "$dir"
   local out=$dir/untisd-$triple$ext
   if [[ $goarch == universal ]]; then
-    build "$out.amd64" darwin amd64
-    build "$out.arm64" darwin arm64
-    lipo -create -output "$out" "$out.amd64" "$out.arm64"
-    rm -f "$out.amd64" "$out.arm64"
+    # Tauri builds a universal app arch by arch, so it needs both
+    # per-arch sidecars as well as the lipo'd universal one.
+    build "$dir/untisd-x86_64-apple-darwin" darwin amd64
+    build "$dir/untisd-aarch64-apple-darwin" darwin arm64
+    lipo -create -output "$out" "$dir/untisd-x86_64-apple-darwin" "$dir/untisd-aarch64-apple-darwin"
   else
     build "$out" "$goos" "$goarch" "$goarm"
   fi
@@ -119,6 +123,81 @@ web_all() {
   done
 }
 
+zipdir() { # zipdir ARCHIVE DIR - zip, 7-Zip (Windows runners) or PowerShell
+  if command -v zip >/dev/null; then
+    (cd "$(dirname "$2")" && zip -qr "$1" "$(basename "$2")")
+  elif command -v 7z >/dev/null; then
+    # 7-Zip writes "/" separators, so the zip unpacks correctly everywhere.
+    (cd "$(dirname "$2")" && 7z a -tzip -bd "$1" "$(basename "$2")" >/dev/null)
+  else
+    powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$2")' -DestinationPath '$(cygpath -w "$1")'"
+  fi
+}
+
+# collect TRIPLE: the installers Tauri produced, plus portable archives
+# (the app binary next to untisd, no installation needed).
+collect() {
+  local triple=$1 goos goarch _ arch
+  read -r goos goarch _ <<<"$(goarch "$triple")"
+  arch=$goarch
+  [[ $goarch == amd64 ]] && arch=x64
+  local rel=${TARGET_DIR:-$ROOT/desktop/src-tauri/target}/$triple/release
+  local bundle=$rel/bundle
+  [[ -d $bundle ]] || die "no bundles in $bundle"
+  mkdir -p "$OUT"
+  local f n=0
+  shopt -s nullglob
+  for f in "$bundle"/deb/*.deb "$bundle"/rpm/*.rpm "$bundle"/appimage/*.AppImage \
+           "$bundle"/dmg/*.dmg "$bundle"/msi/*.msi "$bundle"/nsis/*.exe; do
+    cp "$f" "$OUT/"
+    n=$((n + 1))
+  done
+  for f in "$bundle"/macos/*.app; do
+    tar -C "$(dirname "$f")" -czf "$OUT/Untis_${VERSION}_${arch}.app.tar.gz" "$(basename "$f")"
+    n=$((n + 1))
+  done
+  shopt -u nullglob
+
+  local stage name
+  stage=$(mktemp -d)
+  case $goos in
+    linux)
+      name=Untis_${VERSION}_${arch}-linux-portable
+      mkdir -p "$stage/$name"
+      cp "$rel/untis-desktop" "$rel/untisd" "$stage/$name/"
+      tar -C "$stage" -czf "$OUT/$name.tar.gz" "$name"
+      n=$((n + 1)) ;;
+    windows)
+      name=Untis_${VERSION}_${arch}-windows-portable
+      mkdir -p "$stage/$name"
+      cp "$rel/untis-desktop.exe" "$rel/untisd.exe" "$stage/$name/"
+      zipdir "$OUT/$name.zip" "$stage/$name"
+      n=$((n + 1)) ;;
+  esac
+  rm -rf "$stage"
+  [[ $n -gt 0 ]] || die "nothing collected for $triple"
+  ls -1 "$OUT"
+}
+
+# notes VERSION: the changelog section, plus where to find the downloads.
+notes() {
+  local version=$1
+  awk -v v="$version" '
+    $0 ~ "^## \\[" v "\\]" { on = 1; next }
+    on && /^## \[/ { exit }
+    on && /^\[/ { next }
+    on { print }
+  ' "$ROOT/CHANGELOG.md" | sed '/./,$!d'
+  cat <<MD
+
+### Downloads
+
+Which file to pick is explained in the
+[installation guide](https://github.com/seesee010/webuntis-frontend/blob/v$version/docs/install.md).
+Verify downloads with \`sha256sum -c SHA256SUMS\`.
+MD
+}
+
 checksums() {
   [[ -d $OUT ]] || die "nothing in $OUT"
   (cd "$OUT" && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%f\n' | sort | xargs sha256sum >SHA256SUMS)
@@ -131,6 +210,8 @@ case ${1:-} in
   web) web "${2:?goos}" "${3:?goarch}" "${4:-}" ;;
   web-all) web_all ;;
   targets) printf '%s\n' "${WEB_TARGETS[@]}" ;;
+  collect) collect "${2:?triple}" ;;
+  notes) notes "${2:?version}" ;;
   checksums) checksums ;;
-  *) sed -n '2,11p' "$0"; exit 2 ;;
+  *) sed -n '2,13p' "$0"; exit 2 ;;
 esac

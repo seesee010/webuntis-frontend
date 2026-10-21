@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests for scripts/release.sh. Builds into a temporary release dir.
 set -euo pipefail
+export LC_ALL=C
 cd "$(dirname "$0")/.."
 R=scripts/release.sh
 fail=0
@@ -55,6 +56,39 @@ check "windows archive is zip" "untis-web-$(cat VERSION)-windows-arm64.zip" "$(b
 check "windows binary" "1" "$(unzip -l "$zipf" | grep -c 'untisd.exe')"
 armf=$($R web linux arm 7)
 check "armv7 name" "untis-web-$(cat VERSION)-linux-armv7.tar.gz" "$(basename "$armf")"
+
+# collect: a fake Tauri output tree for Linux and Windows.
+fake=$(mktemp -d)
+V=$(cat VERSION)
+mkdir -p "$fake/x86_64-unknown-linux-gnu/release/bundle/"{deb,rpm,appimage}
+touch "$fake/x86_64-unknown-linux-gnu/release/bundle/deb/Untis_${V}_amd64.deb" \
+      "$fake/x86_64-unknown-linux-gnu/release/bundle/rpm/Untis-${V}-1.x86_64.rpm" \
+      "$fake/x86_64-unknown-linux-gnu/release/bundle/appimage/Untis_${V}_amd64.AppImage" \
+      "$fake/x86_64-unknown-linux-gnu/release/untis-desktop" "$fake/x86_64-unknown-linux-gnu/release/untisd"
+mkdir -p "$fake/universal-apple-darwin/release/bundle/"{dmg,macos/Untis.app/Contents}
+touch "$fake/universal-apple-darwin/release/bundle/dmg/Untis_${V}_universal.dmg"
+mkdir -p "$fake/aarch64-pc-windows-msvc/release/bundle/nsis"
+touch "$fake/aarch64-pc-windows-msvc/release/bundle/nsis/Untis_${V}_arm64-setup.exe" \
+      "$fake/aarch64-pc-windows-msvc/release/untis-desktop.exe" "$fake/aarch64-pc-windows-msvc/release/untisd.exe"
+rm -rf release
+TARGET_DIR=$fake $R collect x86_64-unknown-linux-gnu >/dev/null
+TARGET_DIR=$fake $R collect universal-apple-darwin >/dev/null
+TARGET_DIR=$fake $R collect aarch64-pc-windows-msvc >/dev/null
+check "collected files" "Untis-${V}-1.x86_64.rpm Untis_${V}_amd64.AppImage Untis_${V}_amd64.deb Untis_${V}_arm64-setup.exe Untis_${V}_arm64-windows-portable.zip Untis_${V}_universal.app.tar.gz Untis_${V}_universal.dmg Untis_${V}_x64-linux-portable.tar.gz" "$(ls release | sort | xargs)"
+check "linux portable contents" "untis-desktop untisd" "$(tar -tzf release/Untis_${V}_x64-linux-portable.tar.gz | grep -v '/$' | xargs -n1 basename | sort | xargs)"
+check "windows portable contents" "2" "$(unzip -l release/Untis_${V}_arm64-windows-portable.zip | grep -c '\.exe')"
+if TARGET_DIR=$fake/none $R collect x86_64-unknown-linux-gnu >/dev/null 2>&1; then echo "FAIL collect without bundles"; fail=1; else echo "ok   collect without bundles fails"; fi
+rm -rf "$fake" release
+$R web freebsd amd64 >/dev/null
+$R web windows arm64 >/dev/null
+$R web linux arm 7 >/dev/null
+
+# notes: the changelog section of the version, without link references.
+notes=$($R notes "$V")
+grep -q "^First release." <<<"$notes" && echo "ok   notes start with the section text" || { echo "FAIL notes text"; fail=1; }
+grep -q "^### Added" <<<"$notes" && echo "ok   notes keep subsections" || { echo "FAIL notes subsections"; fail=1; }
+grep -q "^\[$V\]:" <<<"$notes" && { echo "FAIL notes contain link refs"; fail=1; } || echo "ok   notes drop link references"
+grep -q "docs/install.md" <<<"$notes" && echo "ok   notes link the install guide" || { echo "FAIL notes install link"; fail=1; }
 
 $R checksums >/dev/null
 (cd release && sha256sum -c --quiet SHA256SUMS) && echo "ok   checksums verify" || { echo "FAIL checksums"; fail=1; }
