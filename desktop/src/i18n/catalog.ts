@@ -69,11 +69,16 @@ export const dynamicStrings = [
   "Mark as read (only in this app)", "Mark as unread (only in this app)",
   "Completed in WebUntis", "Mark as done (only in this app)",
   "{n} school day", "{n} school days", "school days until {date}", "days until {date}",
+  // change notification titles (modules/notifications/describe.ts)
+  "{subject} is cancelled", "Substitution in {subject}", "Room change for {subject}",
+  "Your class was taken out of {subject}", "Additional lesson: {subject}",
+  "{subject} was removed from the timetable", "New exam: {subject}", "Exam removed: {subject}",
+  "New homework in {subject}", "New message",
 ];
 
 /** Catalog entries that are not language (codes, examples, symbols). */
 export const untranslatable = new Set([
   " ms", " px", "×", "…", "s", "A", "B", "C", "MATH", "cli", "week", "--long", "Inter", "Nord", "Deutsch", "English",
   '"IBM Plex Sans"', ".lesson { font-weight: 600; }", "12/31/2026", "2026-12-31", "31.12.2026",
-  "~/.config/untis/.env", "~/.config/untis/config.json", "untis CLI",
+  "~/.config/untis/.env", "Untis", "22:00", "06:30", "~/.config/untis/config.json", "untis CLI",
 ]);
