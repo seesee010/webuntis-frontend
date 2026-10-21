@@ -72,10 +72,11 @@ sidecar() {
   mkdir -p "$dir"
   local out=$dir/untisd-$triple$ext
   if [[ $goarch == universal ]]; then
-    build "$out.amd64" darwin amd64
-    build "$out.arm64" darwin arm64
-    lipo -create -output "$out" "$out.amd64" "$out.arm64"
-    rm -f "$out.amd64" "$out.arm64"
+    # Tauri builds a universal app arch by arch, so it needs both
+    # per-arch sidecars as well as the lipo'd universal one.
+    build "$dir/untisd-x86_64-apple-darwin" darwin amd64
+    build "$dir/untisd-aarch64-apple-darwin" darwin arm64
+    lipo -create -output "$out" "$dir/untisd-x86_64-apple-darwin" "$dir/untisd-aarch64-apple-darwin"
   else
     build "$out" "$goos" "$goarch" "$goarm"
   fi
@@ -122,9 +123,12 @@ web_all() {
   done
 }
 
-zipdir() { # zipdir ARCHIVE DIR - zip, or PowerShell on Windows runners without zip
+zipdir() { # zipdir ARCHIVE DIR - zip, 7-Zip (Windows runners) or PowerShell
   if command -v zip >/dev/null; then
     (cd "$(dirname "$2")" && zip -qr "$1" "$(basename "$2")")
+  elif command -v 7z >/dev/null; then
+    # 7-Zip writes "/" separators, so the zip unpacks correctly everywhere.
+    (cd "$(dirname "$2")" && 7z a -tzip -bd "$1" "$(basename "$2")" >/dev/null)
   else
     powershell -NoProfile -Command "Compress-Archive -Path '$(cygpath -w "$2")' -DestinationPath '$(cygpath -w "$1")'"
   fi
