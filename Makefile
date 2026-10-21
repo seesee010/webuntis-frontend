@@ -8,6 +8,8 @@ BACKEND   := backend
 DESKTOP   := desktop
 TRIPLE    := $(shell rustc -vV 2>/dev/null | sed -n 's/^host: //p')
 SIDECAR   := $(DESKTOP)/src-tauri/binaries/untisd-$(TRIPLE)
+VERSION   := $(shell cat VERSION)
+GOFLAGS_LD := -s -w -X main.version=$(VERSION)
 
 .PHONY: all dev backend-dev app web test lint build sidecar backend-test frontend-test shell-test clean
 
@@ -31,7 +33,7 @@ lint: backend-test
 
 sidecar:
 	mkdir -p $(dir $(SIDECAR))
-	cd $(BACKEND) && go build -trimpath -ldflags "-s -w" -o ../$(SIDECAR) ./cmd/untisd
+	cd $(BACKEND) && go build -trimpath -ldflags "$(GOFLAGS_LD)" -o ../$(SIDECAR) ./cmd/untisd
 
 # Browser development: run backend-dev and dev in two terminals.
 backend-dev:
@@ -46,7 +48,7 @@ web:
 	cd $(DESKTOP) && pnpm build
 	find $(WEBUI) -mindepth 1 ! -name .keep -exec rm -rf {} +
 	cp -r $(DESKTOP)/dist/. $(WEBUI)/
-	cd $(BACKEND) && go build -trimpath -ldflags "-s -w" -o bin/untisd ./cmd/untisd
+	cd $(BACKEND) && go build -trimpath -ldflags "$(GOFLAGS_LD)" -o bin/untisd ./cmd/untisd
 
 app: sidecar
 	cd $(DESKTOP) && pnpm tauri dev
