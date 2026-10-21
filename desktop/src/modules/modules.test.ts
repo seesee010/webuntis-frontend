@@ -44,7 +44,7 @@ describe("general", () => {
     const off = general.setup!(ctx) as () => void;
     await new Promise((r) => window.addEventListener("hashchange", r, { once: true }));
     expect(location.hash).toBe("#/status");
-    expect(ctx.settings.get("ui.lastPage")).toBe("/status");
+    expect(ctx.settings.get("state.lastPage")).toBe("/status");
     off();
   });
 });

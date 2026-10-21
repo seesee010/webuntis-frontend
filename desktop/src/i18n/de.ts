@@ -287,7 +287,6 @@ export const de: Dictionary = {
   "Show only icons in the navigation.": "In der Navigation nur Symbole zeigen.",
   "Reopen the last page": "Letzte Seite wieder öffnen",
   "Start where you left off instead of on the start page.": "Dort weitermachen, wo du aufgehört hast, statt auf der Startseite.",
-  "Last page": "Letzte Seite",
 
   // --- language & formats --------------------------------------------------
   "Language & formats": "Sprache & Formate",
