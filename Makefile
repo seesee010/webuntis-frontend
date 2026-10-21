@@ -11,7 +11,7 @@ SIDECAR   := $(DESKTOP)/src-tauri/binaries/untisd-$(TRIPLE)
 VERSION   := $(shell cat VERSION)
 GOFLAGS_LD := -s -w -X main.version=$(VERSION)
 
-.PHONY: all dev backend-dev app web test lint build sidecar backend-test frontend-test shell-test clean
+.PHONY: all dev backend-dev app web script-test test lint build sidecar backend-test frontend-test shell-test clean
 
 all: test
 
@@ -26,7 +26,11 @@ shell-test: sidecar
 	mkdir -p $(DESKTOP)/dist
 	cd $(DESKTOP)/src-tauri && cargo test --quiet
 
-test: backend-test frontend-test shell-test
+# Release scripts: triple mapping, cross-compiling every web target, archives.
+script-test:
+	bash scripts/release_test.sh
+
+test: backend-test frontend-test shell-test script-test
 
 lint: backend-test
 	cd $(DESKTOP) && pnpm typecheck

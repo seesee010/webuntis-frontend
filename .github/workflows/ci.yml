@@ -18,6 +18,9 @@ jobs:
           go-version-file: backend/go.mod
       - run: go vet ./...
       - run: go test -race ./...
+      - name: Release scripts
+        working-directory: .
+        run: bash scripts/release_test.sh
 
   frontend:
     runs-on: ubuntu-latest
