@@ -281,3 +281,8 @@ button.list-row:hover { background: var(--surface-2); }
 .bad { color: var(--bad); }
 .stats.four { grid-template-columns: repeat(4, 1fr); }
 .countdown { display: flex; align-items: center; gap: 14px; }
+
+.subject-editor { display: flex; flex-direction: column; gap: 4px; }
+.subject-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1.3fr) auto 64px auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+.subject-row:first-child { border-top: 0; }
+.input.emoji { width: 64px; text-align: center; }

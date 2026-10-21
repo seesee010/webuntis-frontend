@@ -84,7 +84,7 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
   // Redraw on setting changes (no refetch), reload when data is refreshed.
   let settingsKey = "";
   scope.watch(ctx.settings.document, () => {
-    const key = JSON.stringify([ctx.settings.get("timetable"), ctx.settings.get("ui.names"), ctx.settings.get("subjects")]);
+    const key = JSON.stringify([ctx.settings.get("timetable"), ctx.settings.get("ui.names"), ctx.settings.get("subjects"), ctx.settings.get("filters")]);
     if (key === settingsKey) return;
     const first = settingsKey === "";
     settingsKey = key;

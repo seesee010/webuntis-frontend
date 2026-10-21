@@ -2,11 +2,26 @@ import type { Element, Exam, Homework, Lesson } from "./api/types";
 import type { SettingsStore } from "./settings";
 
 /**
- * How codes are shown to the user. Kept in one place so every view
- * honours the same naming settings (short codes, full names, or both)
- * and the per-subject customisation.
+ * How codes are shown to the user. Every view goes through this class,
+ * so naming (short codes, full names or both), per-subject overrides and
+ * subject filters behave the same everywhere.
+ *
+ * The settings it reads are declared by the subjects module.
  */
 export type NameMode = "short" | "long" | "both";
+
+/** User overrides for one subject, keyed by its short code. */
+export interface SubjectOverride {
+  name?: string;
+  color?: string;
+  emoji?: string;
+  hidden?: boolean;
+}
+
+export interface SubjectStyle {
+  color?: string;
+  emoji?: string;
+}
 
 export function elementName(el: Element, mode: NameMode): string {
   if (mode === "short" || !el.long) return el.short;
@@ -18,6 +33,20 @@ export function names(els: Element[], mode: NameMode, sep = ", "): string {
   return els.filter((e) => e.status !== "REMOVED").map((e) => elementName(e, mode)).join(sep);
 }
 
+/** A stable, pleasant colour for a subject code (used when subjects are
+ * coloured by subject and the user picked no colour). */
+export function autoColor(code: string): string {
+  let hash = 0;
+  for (const c of code) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  return `hsl(${hash % 360} 62% 48%)`;
+}
+
+/** Does a subject match a filter entry (short or long name, any case)? */
+function matchesEntry(el: Element, entry: string): boolean {
+  const e = entry.trim().toLowerCase();
+  return el.short.toLowerCase() === e || (el.long ?? "").toLowerCase() === e;
+}
+
 export class Display {
   constructor(private readonly settings: SettingsStore) {}
 
@@ -25,9 +54,19 @@ export class Display {
     return this.settings.get<NameMode>(`ui.names.${kind}`, "short");
   }
 
-  subject(l: Pick<Lesson, "subjects" | "info">): string {
-    if (!l.subjects.length) return l.info || "Event";
-    return names(l.subjects, this.mode("subjects"), " / ");
+  override(code: string): SubjectOverride {
+    return this.settings.get<Record<string, SubjectOverride>>("subjects.custom", {})[code] ?? {};
+  }
+
+  /** One subject element, with the user's name override applied. */
+  subjectName(el: Element): string {
+    return this.override(el.short).name?.trim() || elementName(el, this.mode("subjects"));
+  }
+
+  subject(l: Pick<Lesson, "subjects"> & { info?: string }): string {
+    const subjects = l.subjects.filter((s) => s.status !== "REMOVED");
+    if (!subjects.length) return l.info || "Event";
+    return subjects.map((s) => this.subjectName(s)).join(" / ");
   }
 
   teachers(els: Element[]): string {
@@ -38,28 +77,54 @@ export class Display {
     return names(els, this.mode("rooms"));
   }
 
-  /** Lessons the user wants to see (subject filters hook in here). */
+  /** Whether a subject list passes the hidden flags and only/except filter. */
+  private keep(subjects: Element[]): boolean {
+    if (subjects.some((s) => this.override(s.short).hidden)) return false;
+    const mode = this.settings.get<string>("filters.mode", "none");
+    const entries = this.settings.get<string[]>("filters.subjects", []);
+    if (mode === "none" || !entries.length) return true;
+    const hit = subjects.some((s) => entries.some((e) => matchesEntry(s, e)));
+    // Like `untis --only/--except`: events have no subject, so --only
+    // hides them and --except keeps them.
+    return mode === "only" ? hit : !hit;
+  }
+
+  /** Lessons the user wants to see. */
   visibleLessons(lessons: Lesson[]): Lesson[] {
-    return lessons;
+    const hideCancelled = this.settings.get<boolean>("filters.hideCancelled", false);
+    const hideRemoved = this.settings.get<boolean>("filters.hideRemoved", false);
+    return lessons.filter((l) => this.keep(l.subjects) && !(hideCancelled && l.cancelled) && !(hideRemoved && l.removed));
   }
 
-  /** Exams the user wants to see. */
   visibleExams(exams: Exam[]): Exam[] {
-    return exams;
+    return exams.filter((e) => this.keep(e.subjects));
   }
 
-  /** Homework the user wants to see. */
   visibleHomework(items: Homework[]): Homework[] {
-    return items;
+    return items.filter((h) => this.keep(h.subjects));
   }
 
-  /** Per-subject look; empty unless the user customised the subject. */
-  subjectStyle(_l: Pick<Lesson, "subjects">): SubjectStyle {
-    return {};
+  /**
+   * Per-subject look. The colour applies to regular lessons (so states
+   * like "cancelled" keep their meaning), and to everything when the
+   * user chose to colour by subject everywhere.
+   */
+  subjectStyle(l: Pick<Lesson, "subjects"> & { status?: Lesson["status"] }): SubjectStyle {
+    const first = l.subjects[0];
+    if (!first) return {};
+    const o = this.override(first.short);
+    const colorMode = this.settings.get<string>("subjects.colorMode", "status");
+    const regular = !l.status || l.status === "regular";
+    let color: string | undefined;
+    if (colorMode !== "status" && (regular || colorMode === "always")) color = o.color || autoColor(first.short);
+    else if (regular && o.color) color = o.color;
+    return { color, emoji: o.emoji || undefined };
   }
-}
 
-export interface SubjectStyle {
-  color?: string;
-  emoji?: string;
+  /** Every subject code seen in the given data, with its long name. */
+  static collectSubjects(groups: { subjects: Element[] }[][]): Element[] {
+    const map = new Map<string, Element>();
+    for (const g of groups) for (const item of g) for (const s of item.subjects) if (!map.has(s.short) || (!map.get(s.short)!.long && s.long)) map.set(s.short, { short: s.short, long: s.long });
+    return [...map.values()].sort((a, b) => a.short.localeCompare(b.short));
+  }
 }
