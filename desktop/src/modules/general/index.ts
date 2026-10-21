@@ -38,22 +38,15 @@ export default defineModule({
           description: "Start where you left off instead of on the start page.",
           default: false,
         },
-        {
-          key: "ui.lastPage",
-          type: "text",
-          label: "Last page",
-          default: "",
-          visibleIf: () => false, // internal; stored here so it resets with everything else
-        },
       ],
     },
   ],
   setup(ctx) {
     if (location.hash.replace(/^#\/?/, "")) return;
-    const target = ctx.settings.get<boolean>("ui.rememberLastPage") && ctx.settings.get<string>("ui.lastPage");
+    const target = ctx.settings.get<boolean>("ui.rememberLastPage") && ctx.settings.get<string>("state.lastPage", "");
     ctx.router.navigate(target || ctx.settings.get<string>("ui.startPage"));
     return ctx.router.route.subscribe((r) => {
-      if (ctx.settings.get("ui.rememberLastPage")) ctx.settings.set("ui.lastPage", r.path);
+      if (ctx.settings.get("ui.rememberLastPage")) ctx.settings.set("state.lastPage", r.path);
     }, false);
   },
 });
