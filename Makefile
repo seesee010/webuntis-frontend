@@ -9,7 +9,7 @@ DESKTOP   := desktop
 TRIPLE    := $(shell rustc -vV 2>/dev/null | sed -n 's/^host: //p')
 SIDECAR   := $(DESKTOP)/src-tauri/binaries/untisd-$(TRIPLE)
 
-.PHONY: all dev app test lint build sidecar backend-test frontend-test shell-test clean
+.PHONY: all dev backend-dev app test lint build sidecar backend-test frontend-test shell-test clean
 
 all: test
 
@@ -32,6 +32,10 @@ lint: backend-test
 sidecar:
 	mkdir -p $(dir $(SIDECAR))
 	cd $(BACKEND) && go build -trimpath -ldflags "-s -w" -o ../$(SIDECAR) ./cmd/untisd
+
+# Browser development: run backend-dev and dev in two terminals.
+backend-dev:
+	cd $(BACKEND) && go run ./cmd/untisd -dev
 
 dev:
 	cd $(DESKTOP) && pnpm dev
