@@ -38,6 +38,15 @@ echo "ok   cross-compiled every web target"
 grep -q '^freebsd/' <(  $R targets) && grep -q '^openbsd/' <($R targets) && grep -q '^netbsd/' <($R targets) \
   && echo "ok   BSDs included" || { echo "FAIL BSDs missing"; fail=1; }
 
+# The installation guide lists every web target.
+while IFS=/ read -r goos goarch goarm; do
+  label=$goarch${goarm:+v$goarm}
+  if ! grep "untis-web-VERSION-$goos-" docs/install.md | grep -qE "[{,-]$label[,}.]"; then
+    echo "FAIL docs/install.md lacks $goos/$label"; fail=1
+  fi
+done < <($R targets)
+echo "ok   install guide covers the web targets"
+
 # Build a sidecar and two web archives for real.
 out=$($R sidecar x86_64-unknown-linux-gnu)
 check "sidecar version" "untisd $(cat VERSION)" "$("$out" -version)"

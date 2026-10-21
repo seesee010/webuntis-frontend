@@ -45,7 +45,23 @@ command, and per-subject names, colours and emoji.
 - **Sample data**: a fully fictional school is built in, so the app works
   without any account
 
-## Quick start (sample data)
+## Download
+
+Grab the latest version from the
+[releases page](https://github.com/seesee010/webuntis-frontend/releases/latest):
+
+| Platform | Desktop app | Web edition (runs in the browser) |
+|---|---|---|
+| Windows x64 / ARM64 | `.exe` installer, `.msi`, portable `.zip` | `.zip` (x64, ARM64, x86) |
+| macOS (Apple Silicon + Intel) | `.dmg`, `.app` | `.tar.gz` (arm64, amd64) |
+| Linux x64 / ARM64 | `.deb`, `.rpm`, `.AppImage`, portable `.tar.gz` | `.tar.gz` (also armv7, armv6, 386, riscv64, ppc64le, s390x, loong64) |
+| FreeBSD, OpenBSD, NetBSD, DragonFly | — | `.tar.gz` (amd64, arm64, 386, armv7) |
+| illumos, Solaris | — | `.tar.gz` (amd64) |
+
+Which file to pick and how to start it is explained in the
+[installation guide](docs/install.md).
+
+## Quick start from source (sample data)
 
 Requirements: Go 1.23+, Node 22+ with pnpm, and Rust plus the
 [Tauri prerequisites](https://tauri.app/start/prerequisites/) for the
