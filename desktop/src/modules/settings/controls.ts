@@ -26,7 +26,7 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
         const n = clamp(Number(input.value), field.min, field.max);
         if (!Number.isNaN(n)) s.set(field.key, n);
       });
-      return h("div", { class: "row-inline" }, input, field.unit ? h("span", { class: "muted small" }, field.unit) : null);
+      return h("div", { class: "row-inline" }, input, field.unit ? h("span", { class: "muted small" }, ctx.i18n.t(field.unit)) : null);
     }
     case "range": {
       const input = h("input", {
@@ -37,11 +37,11 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
       scope.add(
         s.watch<number>(field.key, (v) => {
           input.value = String(v);
-          out.textContent = `${v}${field.unit ?? ""}`;
+          out.textContent = `${v}${field.unit ? ctx.i18n.t(field.unit) : ""}`;
         }),
       );
       input.addEventListener("input", () => {
-        out.textContent = `${input.value}${field.unit ?? ""}`;
+        out.textContent = `${input.value}${field.unit ? ctx.i18n.t(field.unit) : ""}`;
         s.set(field.key, Number(input.value));
       });
       return h("div", { class: "row-inline" }, input, out);
@@ -49,7 +49,7 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
     case "select": {
       const select = h("select", { id, class: "input" });
       const opts = typeof field.options === "function" ? field.options(ctx) : field.options;
-      replace(select, opts.map((o) => h("option", { value: o.value }, o.label)));
+      replace(select, opts.map((o) => h("option", { value: o.value }, ctx.i18n.t(o.label))));
       scope.add(s.watch<string>(field.key, (v) => (select.value = v)));
       select.addEventListener("change", () => s.set(field.key, select.value));
       return select;
@@ -57,7 +57,7 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
     case "segmented": {
       const group = h("div", { class: "segmented", attrs: { role: "radiogroup" } });
       const buttons = field.options.map((o) =>
-        h("button", { type: "button", dataset: { value: o.value }, attrs: { role: "radio" }, onclick: () => s.set(field.key, o.value) }, o.label),
+        h("button", { type: "button", dataset: { value: o.value }, attrs: { role: "radio" }, onclick: () => s.set(field.key, o.value) }, ctx.i18n.t(o.label)),
       );
       replace(group, buttons);
       scope.add(
@@ -89,7 +89,7 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
       const input = field.multiline
         ? h("textarea", { id, class: ["input", field.monospace && "mono"], attrs: { rows: "6", spellcheck: "false" } })
         : h("input", { type: "text", id, class: ["input", field.monospace && "mono"] });
-      if (field.placeholder) input.placeholder = field.placeholder;
+      if (field.placeholder) input.placeholder = ctx.i18n.t(field.placeholder);
       scope.add(s.watch<string>(field.key, (v) => (input.value = v)));
       input.addEventListener("change", () => s.set(field.key, input.value));
       return input;
@@ -105,7 +105,7 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
 function listControl(field: Extract<Field, { type: "list" }>, ctx: AppContext, scope: Scope): HTMLElement {
   const s = ctx.settings;
   const chips = h("div", { class: "chips" });
-  const input = h("input", { type: "text", class: "input", placeholder: field.placeholder ?? "Add…" });
+  const input = h("input", { type: "text", class: "input", placeholder: ctx.i18n.t(field.placeholder ?? "Add…") });
   const render = (items: string[]) =>
     replace(
       chips,
@@ -115,7 +115,7 @@ function listControl(field: Extract<Field, { type: "list" }>, ctx: AppContext, s
           { class: "chip editable" },
           item,
           h("button", {
-            type: "button", class: "chip-x", title: "Remove", attrs: { "aria-label": `Remove ${item}` },
+            type: "button", class: "chip-x", title: ctx.i18n.t("Remove"), attrs: { "aria-label": ctx.i18n.t("Remove") },
             onclick: () => s.set(field.key, items.filter((_, j) => j !== i)),
           }, icon("close", 12)),
         ),

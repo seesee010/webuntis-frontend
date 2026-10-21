@@ -3,6 +3,7 @@ import type { Change } from "./api/types";
 import { Bus } from "./bus";
 import type { DataService } from "./data";
 import type { Display } from "./display";
+import type { I18n } from "./i18n";
 import type { ModuleRegistry } from "./module";
 import type { Router } from "./router";
 import type { SettingsStore } from "./settings";
@@ -28,6 +29,7 @@ export interface AppContext {
   modules: ModuleRegistry;
   toasts: Toasts;
   display: Display;
+  i18n: I18n;
 }
 
 export function createBus(): Bus<AppEvents> {

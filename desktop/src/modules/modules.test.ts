@@ -83,6 +83,6 @@ describe("status", () => {
     const el = status.route!.render(ctx, new Scope(), new URLSearchParams());
     await settle();
     expect(el.textContent).toContain("Sample data");
-    expect(el.textContent).toContain("2026-10-05 – 2026-10-11");
+    expect(el.textContent).toContain(`${ctx.i18n.date("2026-10-05")} – ${ctx.i18n.date("2026-10-11")}`);
   });
 });

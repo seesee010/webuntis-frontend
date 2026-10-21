@@ -1,6 +1,6 @@
 import type { AppContext } from "@/core/app";
 import type { Holiday, Lesson, Snapshot } from "@/core/api/types";
-import { addDays, isWeekend, isoWeek, minutes, nowMinutes, parseISO, range, startOfWeek, today } from "@/core/dates";
+import { addDays, isWeekend, isoWeek, minutes, nowMinutes, range, startOfWeek, today } from "@/core/dates";
 import { h, replace } from "@/core/dom";
 import { icon } from "@/core/icons";
 import type { Scope } from "@/core/reactive";
@@ -15,6 +15,7 @@ function opt<T>(ctx: AppContext, key: string): T {
 }
 
 export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearchParams): HTMLElement {
+  const t = ctx.i18n.t.bind(ctx.i18n);
   let mode: Mode = (params.get("mode") as Mode) || opt<Mode>(ctx, "defaultMode");
   let anchor = params.get("date") || today();
 
@@ -24,19 +25,19 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
     "div",
     { class: "segmented" },
     (["week", "day"] as Mode[]).map((m) =>
-      h("button", { type: "button", dataset: { mode: m }, onclick: () => go(anchor, m) }, m === "week" ? "Week" : "Day"),
+      h("button", { type: "button", dataset: { mode: m }, onclick: () => go(anchor, m) }, t(m === "week" ? "Week" : "Day")),
     ),
   );
-  const dateInput = h("input", { type: "date", class: "input", attrs: { "aria-label": "Go to date" } });
+  const dateInput = h("input", { type: "date", class: "input", attrs: { "aria-label": t("Go to date") } });
   dateInput.addEventListener("change", () => dateInput.value && go(dateInput.value, mode));
 
   const step = (dir: number) => go(addDays(anchor, dir * (mode === "week" ? 7 : 1)), mode);
   const toolbar = h(
     "div",
     { class: "tt-toolbar" },
-    h("button", { class: "icon-btn", title: "Previous", attrs: { "aria-label": "Previous" }, onclick: () => step(-1) }, icon("left")),
-    h("button", { class: "btn", onclick: () => go(today(), mode) }, "Today"),
-    h("button", { class: "icon-btn", title: "Next", attrs: { "aria-label": "Next" }, onclick: () => step(1) }, icon("right")),
+    h("button", { class: "icon-btn", title: t("Previous"), attrs: { "aria-label": t("Previous") }, onclick: () => step(-1) }, icon("left")),
+    h("button", { class: "btn", onclick: () => go(today(), mode) }, t("Today")),
+    h("button", { class: "icon-btn", title: t("Next"), attrs: { "aria-label": t("Next") }, onclick: () => step(1) }, icon("right")),
     label,
     h("div", { class: "spacer" }),
     dateInput,
@@ -47,9 +48,9 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
   async function load(): Promise<void> {
     const my = ++token;
     const days = visibleDays(ctx, anchor, mode, null);
-    const from = mode === "week" ? startOfWeek(anchor) : anchor;
+    const from = mode === "week" ? startOfWeek(anchor, ctx.i18n.firstDay()) : anchor;
     const to = mode === "week" ? addDays(from, 6) : anchor;
-    label.replaceChildren(rangeLabel(days, mode));
+    label.replaceChildren(rangeLabel(ctx, days, mode));
     dateInput.value = anchor;
     for (const b of modeSwitch.querySelectorAll("button")) b.classList.toggle("active", b.dataset.mode === mode);
     grid.classList.add("loading");
@@ -59,7 +60,7 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
       draw(snap);
     } catch (err) {
       if (my !== token) return;
-      replace(grid, h("div", { class: "empty" }, `Could not load the timetable: ${(err as Error).message}`));
+      replace(grid, h("div", { class: "empty" }, t("Could not load the timetable: {error}", { error: (err as Error).message })));
     } finally {
       if (my === token) grid.classList.remove("loading");
     }
@@ -84,7 +85,7 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
   // Redraw on setting changes (no refetch), reload when data is refreshed.
   let settingsKey = "";
   scope.watch(ctx.settings.document, () => {
-    const key = JSON.stringify([ctx.settings.get("timetable"), ctx.settings.get("ui.names"), ctx.settings.get("subjects"), ctx.settings.get("filters")]);
+    const key = JSON.stringify([ctx.settings.get("ui"), ctx.settings.get("timetable"), ctx.settings.get("ui.names"), ctx.settings.get("subjects"), ctx.settings.get("filters")]);
     if (key === settingsKey) return;
     const first = settingsKey === "";
     settingsKey = key;
@@ -105,7 +106,7 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
 /** The days shown for the anchor date, honouring the weekend setting. */
 function visibleDays(ctx: AppContext, anchor: string, mode: Mode, snap: Snapshot | null): string[] {
   if (mode === "day") return [anchor];
-  const start = startOfWeek(anchor);
+  const start = startOfWeek(anchor, ctx.i18n.firstDay());
   const all = range(start, addDays(start, 6));
   const weekends = opt<string>(ctx, "weekends");
   if (weekends === "always") return all;
@@ -113,13 +114,10 @@ function visibleDays(ctx: AppContext, anchor: string, mode: Mode, snap: Snapshot
   return all.filter((d) => !isWeekend(d) || (weekends === "auto" && hasWeekendLessons));
 }
 
-function rangeLabel(days: string[], mode: Mode): HTMLElement {
-  const fmt = (d: string, o: Intl.DateTimeFormatOptions) => parseISO(d).toLocaleDateString(undefined, o);
-  const text =
-    mode === "day"
-      ? fmt(days[0], { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-      : `${fmt(days[0], { day: "numeric", month: "short" })} – ${fmt(days[days.length - 1], { day: "numeric", month: "short", year: "numeric" })}`;
-  return h("span", null, h("strong", null, text), h("span", { class: "muted small" }, `  Week ${isoWeek(days[0])}`));
+function rangeLabel(ctx: AppContext, days: string[], mode: Mode): HTMLElement {
+  const i = ctx.i18n;
+  const text = mode === "day" ? i.date(days[0], "long") : `${i.date(days[0], "dayMonth")} – ${i.date(days[days.length - 1], "dayMonth")}`;
+  return h("span", null, h("strong", null, text), h("span", { class: "muted small" }, `  ${i.t("Week {n}", { n: isoWeek(days[0]) })}`));
 }
 
 function holidayOn(day: string, holidays: Holiday[]): Holiday | undefined {
@@ -153,7 +151,7 @@ function buildGrid(ctx: AppContext, scope: Scope, snap: Snapshot, days: string[]
   const now = today();
 
   if (!lessons.length && !days.some((d) => holidayOn(d, snap.holidays))) {
-    return h("div", { class: "card empty" }, "No lessons in this period.");
+    return h("div", { class: "card empty" }, ctx.i18n.t("No lessons in this period."));
   }
 
   const timeCol = h(
@@ -163,8 +161,8 @@ function buildGrid(ctx: AppContext, scope: Scope, snap: Snapshot, days: string[]
       h(
         "div",
         { class: ["tt-mark", m.kind], style: { top: `${m.top}px`, height: `${m.height}px` } },
-        opt<boolean>(ctx, "showPeriodNumbers") || m.kind === "hour" ? h("span", { class: "tt-mark-label" }, m.label) : null,
-        m.sub && opt<boolean>(ctx, "showPeriodTimes") ? h("span", { class: "tt-mark-sub" }, m.sub) : null,
+        opt<boolean>(ctx, "showPeriodNumbers") || m.kind === "hour" ? h("span", { class: "tt-mark-label" }, m.kind === "hour" ? ctx.i18n.time(m.label) : m.label) : null,
+        m.sub && opt<boolean>(ctx, "showPeriodTimes") ? h("span", { class: "tt-mark-sub" }, m.sub.split("\n").map((x) => ctx.i18n.time(x)).join("\n")) : null,
       ),
     ),
   );
@@ -174,8 +172,8 @@ function buildGrid(ctx: AppContext, scope: Scope, snap: Snapshot, days: string[]
     const head = h(
       "div",
       { class: ["tt-dayhead", isToday && "today"] },
-      h("span", { class: "tt-dow" }, parseISO(day).toLocaleDateString(undefined, { weekday: mode === "day" ? "long" : "short" })),
-      h("span", { class: "tt-date" }, parseISO(day).toLocaleDateString(undefined, { day: "numeric", month: "numeric" })),
+      h("span", { class: "tt-dow" }, ctx.i18n.weekday(day, mode === "day" ? "long" : "short")),
+      h("span", { class: "tt-date" }, ctx.i18n.shortNumeric(day)),
     );
     const body = h("div", { class: ["tt-day", isToday && "today"], style: { height: `${axis.height}px` } });
     for (const m of axis.marks) body.appendChild(h("div", { class: "tt-rowline", style: { top: `${m.top}px`, height: `${m.height}px` } }));
@@ -223,7 +221,7 @@ function lessonCell(
 ): HTMLElement {
   const teacher = opt<boolean>(ctx, "showTeacher") ? ctx.display.teachers(l.teachers) : "";
   const room = opt<boolean>(ctx, "showRoom") ? ctx.display.rooms(l.rooms) : "";
-  const label = opt<boolean>(ctx, "showStatusLabel") ? statusText[l.status] : "";
+  const label = opt<boolean>(ctx, "showStatusLabel") && statusText[l.status] ? ctx.i18n.t(statusText[l.status]) : "";
   const changedTeacher = l.teachers.some((t) => t.replaces);
   const changedRoom = l.rooms.some((r) => r.replaces);
   const custom = ctx.display.subjectStyle(l);
@@ -240,13 +238,13 @@ function lessonCell(
         width: `calc(${box.width * 100}% - 4px)`,
       },
       dataset: { end: l.end },
-      title: `${ctx.display.subject(l)} ${l.start}–${l.end}`,
+      title: `${ctx.display.subject(l)} ${ctx.i18n.timeRange(l.start, l.end)}`,
       onclick: () => showLessonDetails(ctx, l),
     },
     h("strong", { class: "tt-subject" }, custom.emoji ? `${custom.emoji} ` : "", ctx.display.subject(l)),
     room ? h("span", { class: ["tt-meta", changedRoom && "changed"] }, room) : null,
     teacher ? h("span", { class: ["tt-meta", changedTeacher && "changed"] }, teacher) : null,
-    opt<boolean>(ctx, "showTime") ? h("span", { class: "tt-meta muted" }, `${l.start}–${l.end}`) : null,
+    opt<boolean>(ctx, "showTime") ? h("span", { class: "tt-meta muted" }, ctx.i18n.timeRange(l.start, l.end)) : null,
     label ? h("span", { class: "tt-badge" }, label) : null,
   );
   if (isToday && opt<boolean>(ctx, "dimPast") && minutes(l.end) <= nowMinutes()) el.classList.add("past");

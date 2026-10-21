@@ -17,10 +17,11 @@ export default defineModule({
   route: {
     path: "/settings",
     render(ctx, scope, params) {
+      const t = ctx.i18n.t.bind(ctx.i18n);
       const sections = collectSections(ctx);
       const search = h("input", {
-        type: "search", class: "input search", placeholder: `Search ${countFields(sections)} settings…`,
-        value: params.get("q") ?? "", attrs: { "aria-label": "Search settings" },
+        type: "search", class: "input search", placeholder: t("Search {n} settings…", { n: countFields(sections) }),
+        value: params.get("q") ?? "", attrs: { "aria-label": t("Search settings") },
       });
       const index = h("nav", { class: "settings-index" });
       const body = h("div", { class: "settings-body" });
@@ -31,7 +32,7 @@ export default defineModule({
         renderScope = scope.child();
         const q = search.value;
         const visible = sections
-          .map((s) => ({ s, fields: s.fields.filter((f) => matches(f, s, q) && (f.visibleIf?.(ctx.settings) ?? true)) }))
+          .map((s) => ({ s, fields: s.fields.filter((f) => matches(f, s, q, t) && (f.visibleIf?.(ctx.settings) ?? true)) }))
           .filter((x) => x.fields.length > 0);
 
         replace(
@@ -43,14 +44,14 @@ export default defineModule({
                 ev.preventDefault();
                 body.querySelector(`#section-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
               },
-            }, s.icon ? icon(s.icon, 16) : null, s.title),
+            }, s.icon ? icon(s.icon, 16) : null, t(s.title)),
           ),
         );
         replace(
           body,
           visible.length
             ? visible.map(({ s, fields }) => section(ctx, renderScope, s, fields))
-            : h("div", { class: "empty" }, `No setting matches "${q}".`),
+            : h("div", { class: "empty" }, t("No setting matches \"{q}\".", { q })),
         );
       };
 
@@ -58,7 +59,7 @@ export default defineModule({
       // data source switched), but keep focus inside inputs stable.
       let lastVisible = "";
       scope.watch(ctx.settings.document, () => {
-        const key = sections.flatMap((s) => s.fields.filter((f) => f.visibleIf?.(ctx.settings) ?? true).map((f) => f.key)).join();
+        const key = ctx.i18n.lang + sections.flatMap((s) => s.fields.filter((f) => f.visibleIf?.(ctx.settings) ?? true).map((f) => f.key)).join();
         if (key !== lastVisible) {
           lastVisible = key;
           render();
@@ -87,15 +88,15 @@ function section(ctx: AppContext, scope: Scope, s: SettingsSection, fields: Fiel
   return h(
     "section",
     { class: "card settings-section", id: `section-${s.id}` },
-    h("h2", { class: "card-title" }, s.icon ? icon(s.icon, 16) : null, s.title),
-    s.description ? h("p", { class: "muted small section-desc" }, s.description) : null,
+    h("h2", { class: "card-title" }, s.icon ? icon(s.icon, 16) : null, ctx.i18n.t(s.title)),
+    s.description ? h("p", { class: "muted small section-desc" }, ctx.i18n.t(s.description)) : null,
     fields.map((f) => fieldRow(ctx, scope, f)),
   );
 }
 
 function fieldRow(ctx: AppContext, scope: Scope, f: Field): HTMLElement {
   const reset = h("button", {
-    type: "button", class: "icon-btn reset", title: "Reset to default", attrs: { "aria-label": `Reset ${f.label}` },
+    type: "button", class: "icon-btn reset", title: ctx.i18n.t("Reset to default"), attrs: { "aria-label": ctx.i18n.t("Reset to default") },
     onclick: () => ctx.settings.reset(f.key),
   }, icon("undo", 14));
   scope.add(ctx.settings.watch(f.key, () => reset.classList.toggle("hidden", !ctx.settings.isSet(f.key))));
@@ -107,49 +108,50 @@ function fieldRow(ctx: AppContext, scope: Scope, f: Field): HTMLElement {
     h(
       "div",
       { class: "setting-text" },
-      h("label", { class: "setting-label", attrs: { for: `set-${f.key.replace(/\W/g, "-")}` } }, f.label),
-      f.description ? h("div", { class: "muted small" }, f.description) : null,
+      h("label", { class: "setting-label", attrs: { for: `set-${f.key.replace(/\W/g, "-")}` } }, ctx.i18n.t(f.label)),
+      f.description ? h("div", { class: "muted small" }, ctx.i18n.t(f.description)) : null,
     ),
     h("div", { class: "setting-control" }, renderControl(f, ctx, scope), reset),
   );
 }
 
 function toolbar(ctx: AppContext): HTMLElement[] {
+  const t = ctx.i18n.t.bind(ctx.i18n);
   const fileInput = h("input", { type: "file", accept: "application/json,.json", class: "hidden" });
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
     if (!file) return;
     try {
       const doc = JSON.parse(await file.text());
-      if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw new Error("not a settings object");
+      if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw new Error(t("not a settings object"));
       await ctx.settings.replace(doc);
-      ctx.toasts.show("success", "Settings imported", file.name);
+      ctx.toasts.show("success", t("Settings imported"), file.name);
     } catch (err) {
-      ctx.toasts.show("error", "Import failed", (err as Error).message);
+      ctx.toasts.show("error", t("Import failed"), (err as Error).message);
     }
     fileInput.value = "";
   });
 
   const exportJSON = () => JSON.stringify(ctx.settings.document.get(), null, 2);
   return [
-    h("button", { class: "btn", title: "Copy all settings as JSON", onclick: async () => {
+    h("button", { class: "btn", title: t("Copy all settings as JSON"), onclick: async () => {
       await navigator.clipboard.writeText(exportJSON());
-      ctx.toasts.show("success", "Settings copied to the clipboard", undefined, 2000);
-    } }, icon("download", 16), "Copy JSON"),
-    h("button", { class: "btn", title: "Save all settings to a file", onclick: () => {
+      ctx.toasts.show("success", t("Settings copied to the clipboard"), undefined, 2000);
+    } }, icon("download", 16), t("Copy JSON")),
+    h("button", { class: "btn", title: t("Save all settings to a file"), onclick: () => {
       const a = h("a", {
         href: URL.createObjectURL(new Blob([exportJSON()], { type: "application/json" })),
         download: "untis-gui-settings.json",
       });
       a.click();
       URL.revokeObjectURL(a.href);
-    } }, icon("download", 16), "Export"),
-    h("button", { class: "btn", onclick: () => fileInput.click() }, icon("upload", 16), "Import"),
+    } }, icon("download", 16), t("Export")),
+    h("button", { class: "btn", onclick: () => fileInput.click() }, icon("upload", 16), t("Import")),
     h("button", { class: "btn danger", onclick: async () => {
-      if (!confirm("Reset every setting to its default?")) return;
+      if (!confirm(t("Reset every setting to its default?"))) return;
       await ctx.settings.resetAll();
-      ctx.toasts.show("success", "All settings reset", undefined, 2000);
-    } }, icon("undo", 16), "Reset all"),
+      ctx.toasts.show("success", t("All settings reset"), undefined, 2000);
+    } }, icon("undo", 16), t("Reset all")),
     fileInput,
   ];
 }

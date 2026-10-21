@@ -37,7 +37,7 @@ export default defineModule({
 
 function greeting(ctx: AppContext): string {
   const hour = new Date().getHours();
-  const base = hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const base = ctx.i18n.t(hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
   const user = ctx.data.overview.get()?.meta.user;
   const first = user?.split(/[\s,]+/)[0];
   return ctx.settings.get<boolean>("dashboard.showName") && first ? `${base}, ${first}` : base;
@@ -46,13 +46,13 @@ function greeting(ctx: AppContext): string {
 function renderDashboard(ctx: AppContext, scope: Scope): HTMLElement {
   const head = h("div", { class: "dash-head" });
   const grid = h("div", { class: "dash-grid" });
-  const customise = h("button", { class: "btn", onclick: () => void openDialog("Customise dashboard", layoutEditor(ctx, scope.child()), { wide: true }) }, icon("settings", 16), "Customise");
+  const customise = h("button", { class: "btn", onclick: () => void openDialog(ctx.i18n.t("Customise dashboard"), layoutEditor(ctx, scope.child()), { wide: true }) }, icon("settings", 16), h("span"));
 
   let gridScope = scope.child();
   let key = "";
   const render = () => {
     const slots = resolveLayout(allWidgets(ctx), ctx.settings.get<WidgetSlot[] | null>("dashboard.layout") ?? undefined);
-    const k = JSON.stringify(slots);
+    const k = ctx.i18n.lang + JSON.stringify(slots);
     grid.style.setProperty("--dash-cols", String(ctx.settings.get<number>("dashboard.columns")));
     if (k === key) return;
     key = k;
@@ -69,15 +69,16 @@ function renderDashboard(ctx: AppContext, scope: Scope): HTMLElement {
             try {
               body = w.render(ctx, gridScope.child());
             } catch (err) {
-              body = h("div", { class: "muted small" }, `Widget failed: ${(err as Error).message}`);
+              body = h("div", { class: "muted small" }, ctx.i18n.t("Widget failed: {error}", { error: (err as Error).message }));
             }
-            return h("section", { class: ["card", "widget", `size-${s.size}`], dataset: { widget: w.id } }, h("h2", { class: "card-title" }, icon(w.icon, 16), w.title), body);
+            return h("section", { class: ["card", "widget", `size-${s.size}`], dataset: { widget: w.id } }, h("h2", { class: "card-title" }, icon(w.icon, 16), ctx.i18n.t(w.title)), body);
           })
-        : h("div", { class: "card empty" }, "All widgets are hidden. Use Customise to show some."),
+        : h("div", { class: "card empty" }, ctx.i18n.t("All widgets are hidden. Use Customise to show some.")),
     );
   };
   scope.watch(ctx.settings.document, () => {
     render();
+    customise.lastElementChild!.textContent = ctx.i18n.t("Customise");
     replace(head, ctx.settings.get("dashboard.greeting") ? h("h2", { class: "dash-greeting" }, greeting(ctx)) : h("div"), h("div", { class: "spacer" }), customise);
   });
   scope.watch(ctx.data.overview, () => {

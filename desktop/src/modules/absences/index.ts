@@ -4,7 +4,6 @@ import { h, replace } from "@/core/dom";
 import { defineModule } from "@/core/module";
 import type { Scope } from "@/core/reactive";
 import { live } from "@/modules/dashboard/widgets";
-import { shortDate } from "@/ui/relative";
 import { missedLessons, totals, type AbsenceTotals } from "./logic";
 
 function opt<T>(ctx: AppContext, key: string): T {
@@ -17,26 +16,27 @@ function select(ctx: AppContext, list: Absence[]): Absence[] {
   return out.sort((a, b) => dir * (a.startDate + (a.startTime ?? "")).localeCompare(b.startDate + (b.startTime ?? "")));
 }
 
-function totalsView(t: AbsenceTotals): HTMLElement {
-  const stat = (n: number, label: string, cls = "") => h("div", { class: "stat" }, h("div", { class: ["stat-n", cls] }, String(n)), h("div", { class: "muted small" }, label));
+function totalsView(ctx: AppContext, t: AbsenceTotals): HTMLElement {
+  const stat = (n: number, label: string, cls = "") => h("div", { class: "stat" }, h("div", { class: ["stat-n", cls] }, String(n)), h("div", { class: "muted small" }, ctx.i18n.t(label)));
   return h("div", { class: "stats four" }, stat(t.count, "absences"), stat(t.days, "school days"), stat(t.lessons, "lessons"), stat(t.unexcused, "not excused", t.unexcused ? "bad" : ""));
 }
 
 function absenceRow(ctx: AppContext, a: Absence, grid: Period[]): HTMLElement {
-  const span = a.startDate === a.endDate ? shortDate(a.startDate) : `${shortDate(a.startDate)} – ${shortDate(a.endDate)}`;
+  const i = ctx.i18n;
+  const span = a.startDate === a.endDate ? i.date(a.startDate, "weekdayDay") : `${i.date(a.startDate, "weekdayDay")} – ${i.date(a.endDate, "weekdayDay")}`;
   const lessons = missedLessons(a, grid);
   return h(
     "div",
     { class: ["list-row", !a.excused && "unexcused"], dataset: { id: a.id } },
-    h("div", { class: "list-date" }, h("strong", null, span), a.startTime ? h("span", { class: "muted small" }, `${a.startTime}–${a.endTime ?? ""}`) : null),
+    h("div", { class: "list-date" }, h("strong", null, span), a.startTime ? h("span", { class: "muted small" }, i.timeRange(a.startTime, a.endTime)) : null),
     h(
       "div",
       { class: "list-main" },
-      h("div", null, h("strong", null, a.reason || "Absence"), grid.length ? h("span", { class: "muted small" }, ` · ${lessons} lesson${lessons === 1 ? "" : "s"}`) : null),
+      h("div", null, h("strong", null, a.reason || i.t("Absence")), grid.length ? h("span", { class: "muted small" }, ` · ${i.plural(lessons, "{n} lesson", "{n} lessons")}`) : null),
       opt<boolean>(ctx, "showText") && a.text ? h("div", { class: "muted small" }, a.text) : null,
-      opt<boolean>(ctx, "showText") && a.excuseText ? h("div", { class: "muted small" }, `Excuse: ${a.excuseText}`) : null,
+      opt<boolean>(ctx, "showText") && a.excuseText ? h("div", { class: "muted small" }, i.t("Excuse: {text}", { text: a.excuseText })) : null,
     ),
-    h("span", { class: ["chip", a.excused ? "chip-ok" : "chip-bad"] }, a.excused ? "excused" : a.excuseStatus || "not excused"),
+    h("span", { class: ["chip", a.excused ? "chip-ok" : "chip-bad"] }, a.excused ? i.t("excused") : a.excuseStatus ? i.t(a.excuseStatus) : i.t("not excused")),
   );
 }
 
@@ -48,15 +48,15 @@ function renderAbsences(ctx: AppContext, scope: Scope): HTMLElement {
     const list = select(ctx, snap.absences);
     replace(
       body,
-      h("section", { class: "card" }, h("h2", { class: "card-title" }, "Totals"), totalsView(totals(snap.absences, snap.timeGrid))),
+      h("section", { class: "card" }, h("h2", { class: "card-title" }, ctx.i18n.t("Totals")), totalsView(ctx, totals(snap.absences, snap.timeGrid))),
       h(
         "section",
         { class: "card" },
-        h("h2", { class: "card-title" }, "Absences"),
-        list.length ? list.map((a) => absenceRow(ctx, a, snap.timeGrid)) : h("div", { class: "empty" }, "No absences in the loaded period."),
+        h("h2", { class: "card-title" }, ctx.i18n.t("Absences")),
+        list.length ? list.map((a) => absenceRow(ctx, a, snap.timeGrid)) : h("div", { class: "empty" }, ctx.i18n.t("No absences in the loaded period.")),
       ),
-      snap.errors.absences ? h("div", { class: "muted small" }, `Absences could not be loaded: ${snap.errors.absences}`) : null,
-      h("div", { class: "muted small" }, `Covers ${snap.meta.from} – ${snap.meta.to}; change the history under Settings › Data source.`),
+      snap.errors.absences ? h("div", { class: "muted small" }, ctx.i18n.t("Absences could not be loaded: {error}", { error: snap.errors.absences })) : null,
+      h("div", { class: "muted small" }, ctx.i18n.t("Covers {from} – {to}; change the history under Settings › Data source.", { from: ctx.i18n.date(snap.meta.from), to: ctx.i18n.date(snap.meta.to) })),
     );
   };
   scope.watch(ctx.data.overview, render);
@@ -77,7 +77,7 @@ export default defineModule({
       icon: "absence",
       size: "small",
       enabledByDefault: false,
-      render: (ctx, scope) => live(ctx, scope, (snap) => totalsView(totals(snap.absences, snap.timeGrid))),
+      render: (ctx, scope) => live(ctx, scope, (snap) => totalsView(ctx, totals(snap.absences, snap.timeGrid))),
     },
   ],
   settings: [

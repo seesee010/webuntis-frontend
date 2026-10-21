@@ -25,10 +25,3 @@ export function nowNext(lessons: Lesson[], date: string, nowMin: number): NowNex
   const next = first ? upcoming.filter((l) => l.date === first.date && l.start === first.start) : [];
   return { current, next, today };
 }
-
-/** "1 h 5 min", "12 min". */
-export function duration(mins: number): string {
-  const m = Math.max(0, Math.round(mins));
-  if (m < 60) return `${m} min`;
-  return m % 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m / 60} h`;
-}

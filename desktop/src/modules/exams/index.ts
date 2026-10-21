@@ -5,7 +5,7 @@ import { h, replace } from "@/core/dom";
 import { defineModule } from "@/core/module";
 import type { Scope } from "@/core/reactive";
 import { live } from "@/modules/dashboard/widgets";
-import { groupBy, monthLabel, relativeDay, shortDate } from "@/ui/relative";
+import { groupBy } from "@/ui/relative";
 import { examTitle, sortExams } from "./logic";
 
 function opt<T>(ctx: AppContext, key: string): T {
@@ -13,30 +13,32 @@ function opt<T>(ctx: AppContext, key: string): T {
 }
 
 function examRow(ctx: AppContext, e: Exam, t: string): HTMLElement {
+  const i = ctx.i18n;
   const days = daysBetween(t, e.date);
   const soon = days >= 0 && days <= opt<number>(ctx, "soonDays");
-  const subject = { subjects: e.subjects, info: examTitle(e) };
+  const subject = { subjects: e.subjects, info: i.t(examTitle(e)) };
   const color = ctx.display.subjectStyle(subject).color ?? "var(--c-exam)";
   return h(
     "div",
     { class: ["list-row", days < 0 && "past", soon && "soon"], dataset: { id: e.id } },
-    h("div", { class: "list-date" }, h("strong", null, shortDate(e.date)), e.start ? h("span", { class: "muted small" }, `${e.start}–${e.end ?? ""}`) : null),
+    h("div", { class: "list-date" }, h("strong", null, i.date(e.date, "weekdayDay")), e.start ? h("span", { class: "muted small" }, i.timeRange(e.start, e.end)) : null),
     h("span", { class: "status-dot", style: { background: color } }),
     h(
       "div",
       { class: "list-main" },
-      h("div", null, h("strong", null, ctx.display.subject(subject)), " · ", examTitle(e)),
+      h("div", null, h("strong", null, ctx.display.subject(subject)), " · ", i.t(examTitle(e))),
       opt<boolean>(ctx, "showDetails") && (e.text || e.rooms.length || e.teachers.length)
         ? h("div", { class: "muted small" }, [e.text, ctx.display.rooms(e.rooms), ctx.display.teachers(e.teachers)].filter(Boolean).join(" · "))
         : null,
     ),
-    e.grade && opt<boolean>(ctx, "showGrades") ? h("span", { class: "grade", title: "Grade" }, e.grade) : null,
-    opt<boolean>(ctx, "showCountdown") ? h("span", { class: ["chip", soon && "chip-warn"] }, relativeDay(e.date, t)) : null,
+    e.grade && opt<boolean>(ctx, "showGrades") ? h("span", { class: "grade", title: i.t("Grade") }, e.grade) : null,
+    opt<boolean>(ctx, "showCountdown") ? h("span", { class: ["chip", soon && "chip-warn"] }, i.relativeDay(e.date, t)) : null,
   );
 }
 
 function renderExams(ctx: AppContext, scope: Scope): HTMLElement {
   const body = h("div", { class: "list-page" });
+  const i = ctx.i18n;
   const render = () => {
     const snap = ctx.data.overview.get();
     if (!snap) return replace(body, h("div", { class: "skeleton" }));
@@ -45,16 +47,16 @@ function renderExams(ctx: AppContext, scope: Scope): HTMLElement {
     const { upcoming, past } = sortExams(exams, { today: t, showPast: opt(ctx, "showPast") });
     const group = (list: Exam[]) =>
       opt<string>(ctx, "groupBy") === "month"
-        ? groupBy(list, (e) => monthLabel(e.date))
+        ? groupBy(list, (e) => i.date(e.date, "monthYear"))
         : opt<string>(ctx, "groupBy") === "subject"
-          ? groupBy([...list].sort((a, b) => ctx.display.subject({ subjects: a.subjects }).localeCompare(ctx.display.subject({ subjects: b.subjects }))), (e) => ctx.display.subject({ subjects: e.subjects, info: examTitle(e) }))
+          ? groupBy([...list].sort((a, b) => ctx.display.subject({ subjects: a.subjects }).localeCompare(ctx.display.subject({ subjects: b.subjects }))), (e) => ctx.display.subject({ subjects: e.subjects, info: i.t(examTitle(e)) }))
           : ([["", list]] as [string, Exam[]][]);
     const section = (title: string, list: Exam[]) =>
       list.length
         ? h(
             "section",
             { class: "card" },
-            h("h2", { class: "card-title" }, title, h("span", { class: "chip" }, String(list.length))),
+            h("h2", { class: "card-title" }, i.t(title), h("span", { class: "chip" }, String(list.length))),
             group(list).map(([g, items]) => [g ? h("div", { class: "list-group" }, g) : null, items.map((e) => examRow(ctx, e, t))]),
           )
         : null;
@@ -62,8 +64,8 @@ function renderExams(ctx: AppContext, scope: Scope): HTMLElement {
       body,
       upcoming.length || past.length
         ? [section("Upcoming", upcoming), section("Past", past)]
-        : h("div", { class: "card empty" }, "No exams in the loaded period."),
-      snap.errors.exams ? h("div", { class: "muted small" }, `Exams could not be loaded: ${snap.errors.exams}`) : null,
+        : h("div", { class: "card empty" }, i.t("No exams in the loaded period.")),
+      snap.errors.exams ? h("div", { class: "muted small" }, i.t("Exams could not be loaded: {error}", { error: snap.errors.exams })) : null,
     );
   };
   scope.watch(ctx.data.overview, render);
@@ -87,7 +89,7 @@ export default defineModule({
         live(ctx, scope, (snap) => {
           const t = today();
           const list = sortExams(ctx.display.visibleExams(snap.exams), { today: t, showPast: false }).upcoming.slice(0, opt<number>(ctx, "widgetCount"));
-          return list.length ? list.map((e) => examRow(ctx, e, t)) : h("div", { class: "muted" }, "No upcoming exams.");
+          return list.length ? list.map((e) => examRow(ctx, e, t)) : h("div", { class: "muted" }, ctx.i18n.t("No upcoming exams."));
         }),
     },
   ],
