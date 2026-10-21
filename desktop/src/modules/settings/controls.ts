@@ -1,6 +1,7 @@
 import type { AppContext } from "@/core/app";
 import { h, replace } from "@/core/dom";
 import { icon } from "@/core/icons";
+import { formatBinding, normalizeBinding, strokeOf } from "@/core/keys";
 import type { Scope } from "@/core/reactive";
 import type { Field } from "@/core/schema";
 
@@ -96,6 +97,8 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
     }
     case "list":
       return listControl(field, ctx, scope);
+    case "keybinding":
+      return keybindingControl(field.key, ctx, scope);
     case "custom":
       return field.render(ctx, scope);
   }
@@ -130,6 +133,59 @@ function listControl(field: Extract<Field, { type: "list" }>, ctx: AppContext, s
     input.value = "";
   });
   return h("div", { class: "list-control" }, chips, input);
+}
+
+/** Shows a binding as key caps. */
+export function keyCaps(binding: string): HTMLElement {
+  const strokes = formatBinding(binding);
+  return h("span", { class: "keycaps" }, strokes.length ? strokes.map((s) => h("kbd", null, s)) : h("span", { class: "muted" }, "–"));
+}
+
+/**
+ * Records a shortcut: click, then press up to two strokes ("g t").
+ * Enter or a short pause finishes, Escape cancels, Backspace clears.
+ */
+export function keybindingControl(key: string, ctx: AppContext, scope: Scope): HTMLElement {
+  const s = ctx.settings;
+  const btn = h("button", { type: "button", class: "btn keybinding", title: ctx.i18n.t("Click and press the new shortcut") });
+  const show = (v: string) => replace(btn, keyCaps(v));
+  scope.add(s.watch<string>(key, show));
+
+  let strokes: string[] = [];
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const finish = (save: boolean) => {
+    clearTimeout(timer);
+    window.removeEventListener("keydown", onKey, true);
+    btn.classList.remove("recording");
+    if (save && strokes.length) s.set(key, normalizeBinding(strokes.join(" ")));
+    else show(s.get<string>(key));
+    strokes = [];
+  };
+  const onKey = (ev: KeyboardEvent) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (ev.key === "Escape") return finish(false);
+    if (ev.key === "Enter") return finish(true);
+    if (ev.key === "Backspace" && !strokes.length) {
+      s.set(key, "");
+      return finish(false);
+    }
+    const stroke = strokeOf(ev);
+    if (!stroke) return;
+    strokes.push(stroke);
+    replace(btn, keyCaps(strokes.join(" ")));
+    clearTimeout(timer);
+    if (strokes.length >= 2) return finish(true);
+    timer = setTimeout(() => finish(true), 900);
+  };
+  btn.addEventListener("click", () => {
+    if (btn.classList.contains("recording")) return;
+    btn.classList.add("recording");
+    replace(btn, h("span", { class: "muted" }, ctx.i18n.t("Press keys…")));
+    window.addEventListener("keydown", onKey, true);
+  });
+  scope.add(() => finish(false));
+  return btn;
 }
 
 function str(n: number | undefined): string | undefined {

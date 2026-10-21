@@ -286,3 +286,19 @@ button.list-row:hover { background: var(--surface-2); }
 .subject-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1.3fr) auto 64px auto auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
 .subject-row:first-child { border-top: 0; }
 .input.emoji { width: 64px; text-align: center; }
+
+/* --- keys, palette -------------------------------------------------------- */
+.keycaps { display: inline-flex; gap: 4px; align-items: center; }
+kbd { font-family: var(--font-mono); font-size: 0.78em; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border); border-bottom-width: 2px; background: var(--surface-2); color: var(--text); }
+.btn.keybinding { min-width: 90px; justify-content: center; }
+.btn.keybinding.recording { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+.palette { width: min(560px, 94vw); margin-top: 12vh; }
+.palette .dialog-body { padding: 0; }
+.palette-input { width: 100%; border: 0; border-bottom: 1px solid var(--border); padding: 14px 18px; font-size: 1.05em; background: transparent; outline: none; }
+.palette-list { max-height: 50vh; overflow: auto; padding: 6px; }
+.palette-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; border: 0; background: transparent; border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
+.palette-item.active, .palette-item:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.palette-item .spacer { flex: 1; }
+.shortcut-row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center; padding: 6px 0; border-top: 1px solid var(--border); }
+.shortcut-row:first-child { border-top: 0; }
+.shortcut-row .conflict { color: var(--bad); font-size: 0.8em; }

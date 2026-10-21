@@ -55,7 +55,7 @@ export default defineModule({
   title: "Holidays",
   icon: "sun",
   order: 70,
-  route: { path: "/holidays", render: renderHolidays },
+  route: { path: "/holidays", key: "g b", render: renderHolidays },
   widgets: [
     {
       id: "holiday-countdown",

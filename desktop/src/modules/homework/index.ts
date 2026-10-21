@@ -86,7 +86,7 @@ export default defineModule({
   title: "Homework",
   icon: "book",
   order: 40,
-  route: { path: "/homework", render: renderHomework },
+  route: { path: "/homework", key: "g h", render: renderHomework },
   widgets: [
     {
       id: "open-homework",

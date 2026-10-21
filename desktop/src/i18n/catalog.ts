@@ -9,6 +9,10 @@ export function schemaStrings(modules: readonly ModuleDef[]): string[] {
   const add = (s?: string) => s && out.add(s);
   for (const m of modules) {
     add(m.title);
+    for (const c of m.commands ?? []) {
+      add(c.title);
+      c.keywords?.forEach(add);
+    }
     for (const w of m.widgets ?? []) {
       add(w.title);
       add(w.description);
