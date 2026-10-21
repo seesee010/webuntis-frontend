@@ -29,8 +29,12 @@ export class ApiError extends Error implements ErrorInfo {
 }
 
 /** Resolves the backend connection: through the Tauri shell inside the
- * desktop app, or the fixed `untisd -dev` address in a plain browser. */
+ * desktop app, from the page itself in the web edition (`untisd -web`
+ * serves it with the token in a meta tag), or the fixed `untisd -dev`
+ * address while developing in a browser. */
 export async function discoverConnection(): Promise<Connection> {
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="untis-token"]');
+  if (meta?.content) return { baseUrl: location.origin, token: meta.content };
   if ("__TAURI_INTERNALS__" in window) {
     const { invoke } = await import("@tauri-apps/api/core");
     const info = await invoke<{ port: number; token: string; version: string }>("backend_info");

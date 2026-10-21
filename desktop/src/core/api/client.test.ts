@@ -52,4 +52,10 @@ describe("discoverConnection", () => {
   it("uses the dev backend outside of Tauri", async () => {
     expect(await discoverConnection()).toEqual({ baseUrl: "http://127.0.0.1:47800", token: "dev" });
   });
+
+  it("uses the serving backend in the web edition", async () => {
+    const meta = document.head.appendChild(Object.assign(document.createElement("meta"), { name: "untis-token", content: "web-tok" }));
+    expect(await discoverConnection()).toEqual({ baseUrl: location.origin, token: "web-tok" });
+    meta.remove();
+  });
 });

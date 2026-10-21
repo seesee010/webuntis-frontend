@@ -23,7 +23,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -34,6 +36,7 @@ import (
 	"github.com/seesee010/webuntis-frontend/backend/internal/provider/sample"
 	"github.com/seesee010/webuntis-frontend/backend/internal/service"
 	"github.com/seesee010/webuntis-frontend/backend/internal/settings"
+	"github.com/seesee010/webuntis-frontend/backend/internal/webui"
 )
 
 var version = "dev"
@@ -61,6 +64,8 @@ func run() error {
 		watchStdin   = flag.Bool("watch-stdin", false, "exit when stdin is closed (used by the desktop shell)")
 		verbose      = flag.Bool("v", false, "debug logging")
 		showVersion  = flag.Bool("version", false, "print the version and exit")
+		web          = flag.Bool("web", false, "web edition: also serve the user interface and open it in the browser")
+		noBrowser    = flag.Bool("no-browser", false, "with -web: do not open the browser")
 	)
 	flag.Parse()
 
@@ -106,6 +111,10 @@ func run() error {
 
 	svc := service.New(store, newProvider, events.NewBus(), log)
 	handler := api.New(api.Config{Token: *token, Version: version, Origins: api.DefaultOrigins}, svc, store, log)
+	if *web {
+		handler = withUI(handler, *token)
+	}
+	handler = api.LoopbackHostOnly(handler)
 
 	ln, err := net.Listen("tcp", *addr)
 	if err != nil {
@@ -118,6 +127,15 @@ func run() error {
 	})
 	fmt.Println(string(hello))
 	log.Info("listening", "addr", ln.Addr().String(), "settings", path, "provider", svc.Status().Provider)
+	if *web {
+		url := fmt.Sprintf("http://127.0.0.1:%d/", ln.Addr().(*net.TCPAddr).Port)
+		fmt.Fprintln(os.Stderr, "untisd: web interface at", url)
+		if !*noBrowser {
+			if err := openBrowser(url); err != nil {
+				log.Warn("could not open the browser", "err", err)
+			}
+		}
+	}
 
 	go svc.Run(ctx)
 	errc := make(chan error, 1)
@@ -133,6 +151,31 @@ func run() error {
 	shutdown, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdown)
+}
+
+// withUI serves the API under /api/ and the embedded frontend elsewhere.
+func withUI(apiHandler http.Handler, token string) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/api/", apiHandler)
+	mux.Handle("/", webui.Handler(webui.Files(), token))
+	return mux
+}
+
+// browserCommand returns the program that opens a URL on this OS.
+func browserCommand(goos, url string) (string, []string) {
+	switch goos {
+	case "windows":
+		return "rundll32", []string{"url.dll,FileProtocolHandler", url}
+	case "darwin":
+		return "open", []string{url}
+	default: // Linux and the BSDs
+		return "xdg-open", []string{url}
+	}
+}
+
+func openBrowser(url string) error {
+	name, args := browserCommand(runtime.GOOS, url)
+	return exec.Command(name, args...).Start()
 }
 
 // newProvider builds the provider selected in the settings.
