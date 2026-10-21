@@ -92,12 +92,9 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
     if (!first && last) draw(last);
   });
   scope.watch(ctx.data.revision, () => void load(), false);
-  scope.listen(window, "keydown", (ev: KeyboardEvent) => {
-    if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement || ev.metaKey || ev.ctrlKey) return;
-    if (ev.key === "ArrowLeft") step(-1);
-    else if (ev.key === "ArrowRight") step(1);
-    else if (ev.key === "t") go(today(), mode);
-  });
+  // Keyboard commands (see the timetable module) arrive through the bus.
+  scope.add(ctx.bus.on("timetable:go", (dir) => (dir === 0 ? go(today(), mode) : step(dir))));
+  scope.add(ctx.bus.on("timetable:mode", (m) => go(anchor, m)));
   void load();
 
   return h("div", { class: "page tt-page" }, toolbar, grid);

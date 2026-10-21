@@ -78,7 +78,7 @@ export default defineModule({
   title: "Exams",
   icon: "exam",
   order: 30,
-  route: { path: "/exams", render: renderExams },
+  route: { path: "/exams", key: "g e", render: renderExams },
   widgets: [
     {
       id: "upcoming-exams",

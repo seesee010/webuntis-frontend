@@ -14,7 +14,7 @@ export default defineModule({
   title: "Dashboard",
   icon: "dashboard",
   order: 10,
-  route: { path: "/dashboard", render: renderDashboard },
+  route: { path: "/dashboard", key: "g d", render: renderDashboard },
   widgets: timetableWidgets,
   settings: [
     {

@@ -36,6 +36,7 @@ export type Field =
   | (Base<string> & { type: "color" })
   | (Base<string> & { type: "text"; placeholder?: string; multiline?: boolean; monospace?: boolean })
   | (Base<string[]> & { type: "list"; placeholder?: string })
+  | (Base<string> & { type: "keybinding" })
   | (Base<unknown> & {
       type: "custom";
       /** Renders the control; it reads and writes the setting itself. */

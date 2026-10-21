@@ -1,16 +1,33 @@
 import { defineModule } from "@/core/module";
 import type { SettingsStore } from "@/core/settings";
 import { renderTimetable } from "./view";
+import type { AppContext } from "@/core/app";
 import "./timetable.css";
 
 const periods = (s: SettingsStore) => s.get("timetable.layout") !== "proportional";
+const onTimetable = (ctx: AppContext) => ctx.router.route.get().path === "/timetable";
+
+declare module "@/core/app" {
+  interface AppEvents {
+    /** -1 previous, 1 next, 0 today. */
+    "timetable:go": -1 | 0 | 1;
+    "timetable:mode": "week" | "day";
+  }
+}
 
 export default defineModule({
   id: "timetable",
   title: "Timetable",
   icon: "calendar",
   order: 20,
-  route: { path: "/timetable", render: renderTimetable },
+  route: { path: "/timetable", key: "g t", render: renderTimetable },
+  commands: [
+    { id: "timetable.prev", title: "Previous week or day", icon: "left", key: "arrowleft", when: onTimetable, run: (ctx) => ctx.bus.emit("timetable:go", -1) },
+    { id: "timetable.next", title: "Next week or day", icon: "right", key: "arrowright", when: onTimetable, run: (ctx) => ctx.bus.emit("timetable:go", 1) },
+    { id: "timetable.today", title: "Jump to today", icon: "calendar", key: "t", when: onTimetable, run: (ctx) => ctx.bus.emit("timetable:go", 0) },
+    { id: "timetable.week", title: "Show the week", icon: "calendar", key: "w", when: onTimetable, run: (ctx) => ctx.bus.emit("timetable:mode", "week") },
+    { id: "timetable.day", title: "Show a single day", icon: "calendar", key: "d", when: onTimetable, run: (ctx) => ctx.bus.emit("timetable:mode", "day") },
+  ],
   settings: [
     {
       id: "timetable",

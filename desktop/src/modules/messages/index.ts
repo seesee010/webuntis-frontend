@@ -75,7 +75,7 @@ export default defineModule({
   title: "Messages",
   icon: "mail",
   order: 60,
-  route: { path: "/messages", render: renderMessages },
+  route: { path: "/messages", key: "g m", render: renderMessages },
   widgets: [
     {
       id: "unread-messages",

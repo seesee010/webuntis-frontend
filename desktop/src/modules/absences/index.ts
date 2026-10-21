@@ -69,7 +69,7 @@ export default defineModule({
   title: "Absences",
   icon: "absence",
   order: 50,
-  route: { path: "/absences", render: renderAbsences },
+  route: { path: "/absences", key: "g a", render: renderAbsences },
   widgets: [
     {
       id: "absence-totals",

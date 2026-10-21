@@ -16,6 +16,7 @@ export default defineModule({
   order: 90,
   route: {
     path: "/settings",
+    key: "g s",
     render(ctx, scope, params) {
       const t = ctx.i18n.t.bind(ctx.i18n);
       const sections = collectSections(ctx);
