@@ -2,6 +2,7 @@
 name = "untis-desktop"
 version = "1.0.0"
 description = "Desktop GUI for the untis CLI"
+license = "GPL-2.0-only"
 edition = "2021"
 
 [lib]

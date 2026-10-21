@@ -2,6 +2,7 @@
   "name": "untis-desktop",
   "private": true,
   "version": "1.0.0",
+  "license": "GPL-2.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",

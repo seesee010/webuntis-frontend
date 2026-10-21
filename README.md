@@ -5,6 +5,7 @@
 ![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/frontend-TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Tauri](https://img.shields.io/badge/desktop-Tauri%202-24C8DB?logo=tauri&logoColor=white)
+[![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
 A modular desktop app for your WebUntis timetable, built on top of the
 [`untis`](https://github.com/seesee010/webuntis-scraper) command line tool.
@@ -180,3 +181,7 @@ is merged. Tests only use made-up data and never run the real `untis` CLI.
   (`~/.config` on Linux) with mode `600`.
   Credentials stay with the `untis` CLI and never pass through this app.
 - Screenshots, fixtures and tests use only the built-in fictional data.
+
+## License
+
+[GNU General Public License v2.0](LICENSE).
