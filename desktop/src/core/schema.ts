@@ -85,10 +85,12 @@ export function registerDefaults(ctx: AppContext): void {
 }
 
 /** Case-insensitive match of a search query against a field. */
-export function matches(field: Field, section: SettingsSection, query: string): boolean {
+export function matches(field: Field, section: SettingsSection, query: string, translate: (s: string) => string = (s) => s): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  const hay = [field.label, field.description, field.key, section.title, ...(field.keywords ?? [])]
+  const texts = [field.label, field.description, section.title].filter((x): x is string => !!x);
+  // Match the English text and its translation, so both languages work.
+  const hay = [...texts, ...texts.map(translate), field.key, ...(field.keywords ?? [])]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();

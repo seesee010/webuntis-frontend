@@ -7,7 +7,6 @@ import { IdSet } from "@/core/local-state";
 import { defineModule } from "@/core/module";
 import type { Scope } from "@/core/reactive";
 import { live } from "@/modules/dashboard/widgets";
-import { relativeDay, shortDate } from "@/ui/relative";
 import { sortHomework, stateOf, type HomeworkSort } from "./logic";
 
 function opt<T>(ctx: AppContext, key: string): T {
@@ -27,10 +26,11 @@ function prepare(ctx: AppContext, items: Homework[]) {
 }
 
 function homeworkRow(ctx: AppContext, hw: Homework, st: ReturnType<typeof stateOf>, t: string, done: IdSet): HTMLElement {
+  const i = ctx.i18n;
   const box = h("input", {
     type: "checkbox", class: "check", checked: st === "done", disabled: hw.completed,
-    title: hw.completed ? "Completed in WebUntis" : "Mark as done (only in this app)",
-    attrs: { "aria-label": "Done" },
+    title: i.t(hw.completed ? "Completed in WebUntis" : "Mark as done (only in this app)"),
+    attrs: { "aria-label": i.t("Done") },
   });
   box.addEventListener("change", () => done.set(hw.id, box.checked));
   const due = daysBetween(t, hw.dueDate);
@@ -51,8 +51,8 @@ function homeworkRow(ctx: AppContext, hw: Homework, st: ReturnType<typeof stateO
     h(
       "div",
       { class: "list-date right" },
-      h("strong", null, shortDate(hw.dueDate)),
-      h("span", { class: ["small", st === "overdue" ? "bad" : "muted"] }, st === "done" ? "done" : due < 0 ? `overdue ${-due}d` : relativeDay(hw.dueDate, t)),
+      h("strong", null, i.date(hw.dueDate, "weekdayDay")),
+      h("span", { class: ["small", st === "overdue" ? "bad" : "muted"] }, st === "done" ? i.t("done") : due < 0 ? i.t("overdue by {n} d", { n: -due }) : i.relativeDay(hw.dueDate, t)),
     ),
   );
 }
@@ -70,10 +70,10 @@ function renderHomework(ctx: AppContext, scope: Scope): HTMLElement {
       h(
         "section",
         { class: "card" },
-        h("h2", { class: "card-title" }, "Homework", h("span", { class: "chip" }, `${open} open`)),
-        list.length ? list.map((hw) => homeworkRow(ctx, hw, state(hw), t, done)) : h("div", { class: "empty" }, "No homework. 🎉"),
+        h("h2", { class: "card-title" }, ctx.i18n.t("Homework"), h("span", { class: "chip" }, ctx.i18n.t("{n} open", { n: open }))),
+        list.length ? list.map((hw) => homeworkRow(ctx, hw, state(hw), t, done)) : h("div", { class: "empty" }, ctx.i18n.t("No homework. 🎉")),
       ),
-      h("div", { class: "muted small" }, "Ticking homework off only marks it here; WebUntis is not changed."),
+      h("div", { class: "muted small" }, ctx.i18n.t("Ticking homework off only marks it here; WebUntis is not changed.")),
     );
   };
   scope.watch(ctx.data.overview, render);
@@ -97,7 +97,7 @@ export default defineModule({
         live(ctx, scope, (snap) => {
           const { list, state, t, done } = prepare(ctx, snap.homework);
           const open = list.filter((hw) => state(hw) !== "done").slice(0, opt<number>(ctx, "widgetCount"));
-          return open.length ? open.map((hw) => homeworkRow(ctx, hw, state(hw), t, done)) : h("div", { class: "muted" }, "Nothing open.");
+          return open.length ? open.map((hw) => homeworkRow(ctx, hw, state(hw), t, done)) : h("div", { class: "muted" }, ctx.i18n.t("Nothing open."));
         }),
     },
   ],

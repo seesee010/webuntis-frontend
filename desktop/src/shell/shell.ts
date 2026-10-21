@@ -32,13 +32,13 @@ export function mountShell(root: HTMLElement, ctx: AppContext): void {
     }
     viewScope?.dispose();
     viewScope = scope.child();
-    title.textContent = mod.title;
-    document.title = `${mod.title} · Untis`;
+    title.textContent = ctx.i18n.t(mod.title);
+    document.title = `${ctx.i18n.t(mod.title)} · Untis`;
     try {
       replace(content, mod.route.render(ctx, viewScope, route.params));
     } catch (err) {
       console.error(err);
-      replace(content, h("div", { class: "empty" }, `This view failed to render: ${(err as Error).message}`));
+      replace(content, h("div", { class: "empty" }, ctx.i18n.t("This view failed to render: {error}", { error: (err as Error).message })));
     }
     content.scrollTop = 0;
   });
@@ -52,17 +52,25 @@ function sidebar(ctx: AppContext, scope: Scope): HTMLElement {
     .map((m) =>
       h(
         "a",
-        { class: "nav-item", href: `#${m.route!.path}`, dataset: { path: m.route!.path }, title: m.title },
+        { class: "nav-item", href: `#${m.route!.path}`, dataset: { path: m.route!.path } },
         icon(m.icon, 18),
-        h("span", { class: "nav-label" }, m.title),
+        h("span", { class: "nav-label" }),
       ),
     );
   replace(nav, items);
+  // Labels follow the language setting.
+  scope.watch(ctx.settings.document, () =>
+    items.forEach((a) => {
+      const label = ctx.i18n.t(ctx.modules.routeFor(a.dataset.path!)!.title);
+      a.title = label;
+      a.querySelector(".nav-label")!.textContent = label;
+    }),
+  );
   scope.watch(ctx.router.route, (r) => {
     for (const a of items) a.classList.toggle("active", a.dataset.path === r.path);
   });
 
-  const collapse = h("button", { class: "icon-btn nav-collapse", title: "Collapse sidebar", attrs: { "aria-label": "Collapse sidebar" } }, icon("menu"));
+  const collapse = h("button", { class: "icon-btn nav-collapse", title: ctx.i18n.t("Collapse sidebar"), attrs: { "aria-label": ctx.i18n.t("Collapse sidebar") } }, icon("menu"));
   const aside = h(
     "aside",
     { class: "sidebar" },
@@ -78,12 +86,12 @@ function sidebar(ctx: AppContext, scope: Scope): HTMLElement {
 function providerBadge(ctx: AppContext, scope: Scope): HTMLElement {
   const dot = h("span", { class: "dot" });
   const label = h("span", { class: "nav-label" });
-  const el = h("div", { class: "provider-badge", title: "Data source" }, dot, label);
+  const el = h("div", { class: "provider-badge", title: ctx.i18n.t("Data source") }, dot, label);
   const render = () => {
     const provider = ctx.data.status.get()?.service.provider;
     const connected = ctx.data.connected.get();
     dot.className = `dot ${connected ? "ok" : "bad"}`;
-    label.textContent = !connected ? "Backend offline" : provider === "cli" ? "untis CLI" : provider ? "Sample data" : "…";
+    label.textContent = ctx.i18n.t(!connected ? "Backend offline" : provider === "cli" ? "untis CLI" : provider ? "Sample data" : "…");
   };
   scope.watch(ctx.data.status, render);
   scope.watch(ctx.data.connected, render);
@@ -92,21 +100,22 @@ function providerBadge(ctx: AppContext, scope: Scope): HTMLElement {
 
 function statusArea(ctx: AppContext, scope: Scope): HTMLElement {
   const when = h("span", { class: "muted small" });
-  const btn = h("button", { class: "icon-btn", title: "Refresh now", attrs: { "aria-label": "Refresh now" } }, icon("refresh"));
+  const btn = h("button", { class: "icon-btn", title: ctx.i18n.t("Refresh now"), attrs: { "aria-label": ctx.i18n.t("Refresh now") } }, icon("refresh"));
   btn.addEventListener("click", async () => {
     try {
       const changes = await ctx.data.refresh();
-      ctx.toasts.show("success", "Refreshed", changes.length ? `${changes.length} change(s) detected` : "No changes", 2500);
+      ctx.toasts.show("success", ctx.i18n.t("Refreshed"), changes.length ? ctx.i18n.plural(changes.length, "{n} change detected", "{n} changes detected") : ctx.i18n.t("No changes"), 2500);
     } catch (err) {
-      ctx.toasts.show("error", "Refresh failed", (err as Error).message);
+      ctx.toasts.show("error", ctx.i18n.t("Refresh failed"), (err as Error).message);
     }
   });
   scope.watch(ctx.data.loading, (l) => btn.classList.toggle("spinning", l));
   const render = () => {
     const at = ctx.data.overview.get()?.meta.fetchedAt;
-    when.textContent = at ? `Updated ${new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
+    when.textContent = at ? ctx.i18n.t("Updated {time}", { time: ctx.i18n.time(new Date(at).toTimeString().slice(0, 5)) }) : "";
   };
   scope.watch(ctx.data.overview, render);
+  scope.watch(ctx.settings.document, render, false);
   scope.interval(render, 30_000);
   return h("div", { class: "topbar-status" }, when, btn);
 }
@@ -122,10 +131,10 @@ function errorBanner(ctx: AppContext, err: ErrorInfo): HTMLElement {
     "div",
     { class: `banner banner-${err.kind === "unreachable" ? "warning" : "error"}` },
     icon("alert"),
-    h("div", null, h("strong", null, hints[err.kind] ?? "Something went wrong."), h("div", { class: "small muted" }, err.message)),
+    h("div", null, h("strong", null, ctx.i18n.t(hints[err.kind] ?? "Something went wrong.")), h("div", { class: "small muted" }, err.message)),
     h("div", { class: "spacer" }),
-    h("button", { class: "btn", onclick: () => ctx.router.navigate("/settings") }, "Settings"),
-    h("button", { class: "btn", onclick: () => void ctx.data.loadOverview(true) }, "Retry"),
+    h("button", { class: "btn", onclick: () => ctx.router.navigate("/settings") }, ctx.i18n.t("Settings")),
+    h("button", { class: "btn", onclick: () => void ctx.data.loadOverview(true) }, ctx.i18n.t("Retry")),
   );
 }
 
@@ -139,7 +148,7 @@ function toasts(ctx: AppContext, scope: Scope): HTMLElement {
           "div",
           { class: `toast toast-${t.kind}` },
           h("div", { class: "toast-text" }, h("strong", null, t.title), t.body ? h("div", { class: "small" }, t.body) : null),
-          h("button", { class: "icon-btn", onclick: () => ctx.toasts.dismiss(t.id), attrs: { "aria-label": "Dismiss" } }, icon("close", 14)),
+          h("button", { class: "icon-btn", onclick: () => ctx.toasts.dismiss(t.id), attrs: { "aria-label": ctx.i18n.t("Dismiss") } }, icon("close", 14)),
         ),
       ),
     ),

@@ -25,14 +25,14 @@ export function visibleMessages(ctx: AppContext, list: Message[]): Message[] {
 
 function messageRow(ctx: AppContext, m: Message): HTMLElement {
   const read = isRead(ctx, m);
-  const when = m.date ? new Date(m.date).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "";
+  const when = m.date ? ctx.i18n.date(m.date.slice(0, 10), "dayMonth") : "";
   return h(
     "button",
     {
       type: "button",
       class: ["list-row", "msg", !read && "unread"],
       dataset: { id: m.id },
-      title: read ? "Mark as unread (only in this app)" : "Mark as read (only in this app)",
+      title: ctx.i18n.t(read ? "Mark as unread (only in this app)" : "Mark as read (only in this app)"),
       onclick: () => !m.read && readSet(ctx).toggle(m.id),
     },
     h("span", { class: ["dot", !read && "ok"] }),
@@ -59,10 +59,10 @@ function renderMessages(ctx: AppContext, scope: Scope): HTMLElement {
       h(
         "section",
         { class: "card" },
-        h("h2", { class: "card-title" }, "Inbox", h("span", { class: "chip" }, `${unread} unread`)),
-        list.length ? list.map((m) => messageRow(ctx, m)) : h("div", { class: "empty" }, "No messages."),
+        h("h2", { class: "card-title" }, ctx.i18n.t("Inbox"), h("span", { class: "chip" }, ctx.i18n.t("{n} unread", { n: unread }))),
+        list.length ? list.map((m) => messageRow(ctx, m)) : h("div", { class: "empty" }, ctx.i18n.t("No messages.")),
       ),
-      h("div", { class: "muted small" }, "Clicking a message marks it read here only; open WebUntis to read the full text."),
+      h("div", { class: "muted small" }, ctx.i18n.t("Clicking a message marks it read here only; open WebUntis to read the full text.")),
     );
   };
   scope.watch(ctx.data.overview, render);
@@ -85,7 +85,7 @@ export default defineModule({
       render: (ctx, scope) =>
         live(ctx, scope, (snap) => {
           const unread = snap.messages.filter((m) => !isRead(ctx, m));
-          return unread.length ? unread.slice(0, 4).map((m) => messageRow(ctx, m)) : h("div", { class: "muted" }, "Inbox zero.");
+          return unread.length ? unread.slice(0, 4).map((m) => messageRow(ctx, m)) : h("div", { class: "muted" }, ctx.i18n.t("Inbox zero."));
         }),
     },
   ],

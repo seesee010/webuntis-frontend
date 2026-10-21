@@ -11,9 +11,10 @@ export default defineModule({
     path: "/status",
     render(ctx, scope) {
       const body = h("div", { class: "card" });
+      const t = ctx.i18n.t.bind(ctx.i18n);
       const row = (k: string, v: string | null | undefined) =>
-        h("div", { class: "kv" }, h("span", { class: "muted" }, k), h("span", null, v || "–"));
-      const fmt = (s: string | null | undefined) => (s ? new Date(s).toLocaleString() : null);
+        h("div", { class: "kv" }, h("span", { class: "muted" }, t(k)), h("span", null, v || "–"));
+      const fmt = (s: string | null | undefined) => (s ? ctx.i18n.dateTime(s) : null);
 
       const render = () => {
         const st = ctx.data.status.get();
@@ -21,13 +22,13 @@ export default defineModule({
         replace(
           body,
           row("Backend", st ? `untisd ${st.version}` : null),
-          row("Connection", ctx.data.connected.get() ? "live event stream" : "disconnected"),
-          row("Data source", st?.service.provider === "cli" ? "untis CLI" : "Sample data"),
+          row("Connection", t(ctx.data.connected.get() ? "live event stream" : "disconnected")),
+          row("Data source", t(st?.service.provider === "cli" ? "untis CLI" : "Sample data")),
           st?.service.provider === "cli" ? row("CLI version", st.cliVersion ?? st.cliError?.message) : null,
           row("Last refresh", fmt(st?.service.lastRefresh)),
           row("Next refresh", fmt(st?.service.nextRefresh)),
           row("Last error", st?.service.lastError?.message),
-          row("Overview window", ov ? `${ov.meta.from} – ${ov.meta.to}` : null),
+          row("Overview window", ov ? `${ctx.i18n.date(ov.meta.from)} – ${ctx.i18n.date(ov.meta.to)}` : null),
           row("School", ov?.meta.school),
           row("Settings file", st?.settingsPath),
           ov && Object.keys(ov.errors).length
@@ -38,6 +39,7 @@ export default defineModule({
       scope.watch(ctx.data.status, render);
       scope.watch(ctx.data.overview, render);
       scope.watch(ctx.data.connected, render);
+      scope.watch(ctx.settings.document, render, false);
       void ctx.data.loadStatus();
       return h("div", { class: "page narrow" }, body);
     },

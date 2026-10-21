@@ -2,6 +2,8 @@ import type { ApiClient } from "./api/client";
 import { createBus, type AppContext } from "./app";
 import { DataService } from "./data";
 import { Display } from "./display";
+import { I18n } from "./i18n";
+import { registerTranslations } from "@/i18n";
 import { ModuleRegistry, type ModuleDef } from "./module";
 import { Router } from "./router";
 import { registerDefaults } from "./schema";
@@ -13,6 +15,7 @@ import { Toasts } from "./toasts";
  * settings. Used by main.ts and by the tests, so both run the same code.
  */
 export async function createApp(api: ApiClient, modules: ModuleDef[]): Promise<AppContext> {
+  registerTranslations();
   const bus = createBus();
   const settings = new SettingsStore(api);
   const ctx: AppContext = {
@@ -24,6 +27,7 @@ export async function createApp(api: ApiClient, modules: ModuleDef[]): Promise<A
     modules: new ModuleRegistry(),
     toasts: new Toasts(),
     display: new Display(settings),
+    i18n: new I18n(settings),
   };
   ctx.modules.register(...modules);
   registerDefaults(ctx);
