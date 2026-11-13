@@ -489,4 +489,55 @@ export const de: Dictionary = {
   "Exam removed: {subject}": "Prüfung gestrichen: {subject}",
   "New homework in {subject}": "Neue Hausaufgabe in {subject}",
   "New message": "Neue Nachricht",
+  // --- updates -------------------------------------------------------------
+  "Check for updates": "Nach Updates suchen",
+  "Asks GitHub once a day whether a newer release exists and shows an update button if so. Nothing is downloaded or installed until you press it.":
+    "Fragt einmal am Tag bei GitHub nach, ob es eine neuere Version gibt, und zeigt dann einen Update-Knopf. Heruntergeladen oder installiert wird erst, wenn du ihn drückst.",
+  "Updates": "Updates",
+  "Last update check": "Letzte Update-Prüfung",
+  "Check now": "Jetzt prüfen",
+  "Could not check for updates": "Update-Prüfung nicht möglich",
+  "Up to date": "Aktuell",
+  "Version {version} is the newest release.": "Version {version} ist die neueste Version.",
+  "Not available for this build": "Für diesen Build nicht verfügbar",
+  "Downloading version {version}": "Version {version} wird heruntergeladen",
+  "Version {version} is ready": "Version {version} ist bereit",
+  "Version {version} is available": "Version {version} ist verfügbar",
+  "Not checked yet": "Noch nicht geprüft",
+  "Automatic checks are off": "Automatische Prüfung ist aus",
+  "Downloading… {percent}%": "Lädt… {percent} %",
+  "Restart to update": "Neu starten für Update",
+  "Finish the update": "Update abschließen",
+  "Update to {version}": "Update auf {version}",
+  "Release page opened": "Release-Seite geöffnet",
+  "Version {version} has no automatic update for this installation. Download it from the page that just opened in your browser.":
+    "Für diese Installation gibt es kein automatisches Update auf Version {version}. Lade sie von der Seite herunter, die gerade im Browser geöffnet wurde.",
+  "The update could not be started": "Das Update konnte nicht gestartet werden",
+  "Downloads the new version and installs it. A restart finishes the update.":
+    "Lädt die neue Version herunter und installiert sie. Ein Neustart schließt das Update ab.",
+  "Downloads the installer of the new version and opens it.": "Lädt das Installationsprogramm der neuen Version herunter und öffnet es.",
+  "Downloads the package of the new version. Installing it needs your package manager.":
+    "Lädt das Paket der neuen Version herunter. Installiert wird es mit deiner Paketverwaltung.",
+  "Opens the release page in your browser.": "Öffnet die Release-Seite im Browser.",
+  "Close": "Schließen",
+  "Later": "Später",
+  "Version {version} was not installed. Your current version is unchanged.":
+    "Version {version} wurde nicht installiert. Deine aktuelle Version ist unverändert.",
+  "Open the release page": "Release-Seite öffnen",
+  "Try again": "Noch einmal versuchen",
+  "The update failed": "Das Update ist fehlgeschlagen",
+  "Version {version} is installed. Close untisd and start it again to use it.":
+    "Version {version} ist installiert. Beende untisd und starte es neu, um sie zu verwenden.",
+  "Restart now": "Jetzt neu starten",
+  "Restarting…": "Startet neu…",
+  "The restart did not work": "Der Neustart hat nicht geklappt",
+  "Version {version} is installed. Restart the app to use it.": "Version {version} ist installiert. Starte die App neu, um sie zu verwenden.",
+  "The installer of version {version} was downloaded and opened. Follow its steps; it may ask you to close this app.":
+    "Das Installationsprogramm für Version {version} wurde heruntergeladen und geöffnet. Folge seinen Schritten; es kann dich bitten, diese App zu schließen.",
+  "Copy the command": "Befehl kopieren",
+  "Copied": "Kopiert",
+  "Could not copy": "Kopieren nicht möglich",
+  "Select the command and copy it yourself.": "Markiere den Befehl und kopiere ihn selbst.",
+  "The package of version {version} was downloaded. Installing it needs administrator rights, so run this in a terminal:":
+    "Das Paket für Version {version} wurde heruntergeladen. Die Installation braucht Administratorrechte, führe daher diesen Befehl im Terminal aus:",
 };

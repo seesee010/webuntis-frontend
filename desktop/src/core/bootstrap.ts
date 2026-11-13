@@ -9,6 +9,7 @@ import { Router } from "./router";
 import { registerDefaults } from "./schema";
 import { SettingsStore } from "./settings";
 import { Toasts } from "./toasts";
+import { UpdateService } from "./update";
 
 /**
  * Wires all services together, registers the modules and loads the
@@ -28,6 +29,7 @@ export async function createApp(api: ApiClient, modules: ModuleDef[]): Promise<A
     toasts: new Toasts(),
     display: new Display(settings),
     i18n: new I18n(settings),
+    update: new UpdateService(api, bus),
   };
   ctx.modules.register(...modules);
   registerDefaults(ctx);
