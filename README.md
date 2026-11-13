@@ -42,7 +42,7 @@ The screenshot shows the built-in sample data: the school, subjects, teachers an
 
 The app never talks to WebUntis itself. Login, sessions, caching and every
 API call stay in the `untis` CLI; this app runs it, turns its JSON into a
-clean model and gives you a GUI on top: 127 settings in 20 sections, a
+clean model and gives you a GUI on top: 128 settings in 20 sections, a
 rebindable shortcut for every command, and per-subject names, colours and
 emoji.
 
@@ -63,6 +63,7 @@ emoji.
 | 🌗 **Theming** | Light/dark/system, palettes and presets, accent and per-state colours, four ways to draw lesson states, fonts, density, radius and custom CSS |
 | 🌍 **Localisation** | English and German, first day of week, 12/24 h clock, date format and relative dates |
 | ⌨️ **Keyboard first** | Command palette (Ctrl/Cmd+K) and shortcuts such as `g t` for the timetable, all rebindable |
+| ⬆️ **Updates** | An update button appears when a newer release exists and fetches the right file for your platform and installation. Nothing is installed without your click |
 | 🧪 **Sample data** | A fully fictional school is built in, so the app works without any account |
 
 ## 📦 Download
@@ -205,6 +206,10 @@ is merged. Tests only use made-up data and never run the real `untis` CLI.
 - Settings are stored in `untis-gui/settings.json` in your config folder
   (`~/.config` on Linux) with mode `600`.
   Credentials stay with the `untis` CLI and never pass through this app.
+- The only request the app makes on its own is the update check: once a
+  day it asks GitHub for the latest release of this repository. It sends
+  the app version and nothing about you or your timetable, and
+  **Settings › General › Check for updates** switches it off.
 - Screenshots, fixtures and tests use only the built-in fictional data.
 
 ## 📄 License

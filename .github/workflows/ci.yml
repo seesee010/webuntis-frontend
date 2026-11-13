@@ -22,6 +22,26 @@ jobs:
         working-directory: .
         run: bash scripts/release_test.sh
 
+  # The updater replaces running programs, which works differently on
+  # every system, so its tests also run where the app is installed.
+  updater:
+    name: updater (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - run: go vet ./internal/update/ ./cmd/untisd/
+      - run: go test -count=1 ./internal/update/
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

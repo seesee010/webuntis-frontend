@@ -15,7 +15,8 @@ cmd/untisd ──▶ api ──▶ service ──▶ provider ──┬──▶
                 │          │                  └──▶ cli      (runs `untis`)
                 │          ├──▶ changes                          │
                 │          └──▶ events                      untisjson ──▶ domain
-                └──▶ settings
+                ├──▶ settings
+                └──▶ update ──▶ GitHub releases (only this, only when allowed)
 ```
 
 - **domain** is the model the frontend sees: one `Lesson` list (with a
@@ -38,6 +39,8 @@ cmd/untisd ──▶ api ──▶ service ──▶ provider ──┬──▶
   swaps the provider when the data source settings change.
 - **settings** stores one JSON document atomically with mode 600. The
   frontend owns its schema; the backend only reads the `backend` subtree.
+- **update** looks for newer releases and installs one when the user
+  presses the update button; see [Updates](#updates) below.
 - **api** serves it on 127.0.0.1 with a per-process token:
 
 | Method | Path | |
@@ -49,13 +52,66 @@ cmd/untisd ──▶ api ──▶ service ──▶ provider ──┬──▶
 | POST | `/api/refresh` | refetch now; returns the changes |
 | GET | `/api/who?code=` | explain a code |
 | GET/PUT/PATCH/DELETE | `/api/settings` | read, replace, merge-patch, reset |
-| GET | `/api/events` | server-sent events: `snapshot`, `changes`, `error`, `settings`, `provider` |
+| GET | `/api/update` | the updater's state: newer release, progress, result |
+| POST | `/api/update/check` | look for a newer release now |
+| POST | `/api/update/apply` | the update button: download and install; progress arrives as events |
+| POST | `/api/update/page` | open the release page in the browser |
+| POST | `/api/update/restart` | web edition: restart into the installed version |
+| GET | `/api/events` | server-sent events: `snapshot`, `changes`, `error`, `settings`, `provider`, `update` |
 
 On start `untisd` prints `{"port", "token", "version"}` as its first
 line. The Tauri shell reads it and passes it to the frontend
 (`backend_info` command). `-dev` fixes port 47800 and token `dev` for
 browser development; `-watch-stdin` stops the backend when the shell's
 pipe closes.
+
+### Updates
+
+`internal/update` is the only code that talks to anything but the local
+machine and the `untis` CLI. It does three things:
+
+1. **Check.** Shortly after start and then once a day it asks
+   `api.github.com` for the latest release of this repository, unless
+   `updates.check` is switched off. Development builds (`dev`) never ask.
+   A failed check is silent. When the release is newer than the running
+   version, the state becomes `available` and the frontend shows the
+   update button; otherwise there is no button.
+2. **Pick the file.** A release carries about 45 files. `Detect` works
+   out how the running app was installed, and `Install.Asset` names the
+   one file that belongs to it:
+
+   | Installation | Recognised by | File | Button |
+   |---|---|---|---|
+   | web edition | `-web` and the target stamped into release builds (`untisd -version` shows it) | `untis-web-V-OS-ARCH.tar.gz` / `.zip` | replaces `untisd`, then restarts it |
+   | AppImage | `$APPIMAGE`, with the binary inside `$APPDIR` | `Untis_V_amd64.AppImage` / `_aarch64` | replaces the AppImage file, then restarts the app |
+   | portable folder | `portable.txt` next to the programs | `Untis_V_x64-linux-portable.tar.gz`, `…-windows-portable.zip` | replaces both programs, then restarts the app |
+   | deb / rpm | `dpkg -S` / `rpm -qf` own the binary | `Untis_V_amd64.deb`, `Untis-V-1.x86_64.rpm` | downloads it and shows the install command |
+   | Windows setup | `uninstall.exe` next to the app | `Untis_V_x64-setup.exe` | downloads and opens it |
+   | Windows MSI | below Program Files, no uninstaller | `Untis_V_x64_en-US.msi` | downloads and opens it |
+   | macOS app | inside `*.app/Contents/MacOS` | `Untis_V_universal.dmg` | downloads and opens it |
+   | anything else | — | — | opens the release page |
+
+   When the installation is not recognised for certain (a build from
+   source, a platform without a file) it counts as unknown: opening the
+   release page is always right, downloading the wrong file never is.
+   A test pins these names to the files of a real release.
+3. **Install, on request only.** Nothing is downloaded before the button
+   is pressed. The download address is built from the tag and the file
+   name, the file must have the announced size and the SHA-256 listed in
+   the release's `SHA256SUMS`, and only then is anything touched.
+   Replaced programs are moved aside first and moved back if a later
+   step fails. `SHA256SUMS` comes from the same release, so it protects
+   against a broken download, not against a compromised release.
+
+The web edition restarts in place on Unix (`exec`), handing its address
+and token to the new process through the environment, so the open tab
+keeps working; on Windows the user starts it again. The desktop app
+restarts through the shell's `restart_app` command.
+
+For testing, `UNTISD_UPDATE_URL` points the updater at another server
+that serves `/repos/OWNER/REPO/releases/latest` and
+`/OWNER/REPO/releases/download/TAG/FILE`. It must be https, or http on
+the loopback interface.
 
 ## Frontend
 
@@ -70,6 +126,7 @@ pipe closes.
 | `schema.ts` | declarative settings fields |
 | `settings.ts` | settings store: instant local writes, batched merge patches, defaults |
 | `data.ts` | overview snapshot, on-demand windows, live updates |
+| `update.ts` | the updater's state for the update button and the status page |
 | `display.ts` | names, subject overrides, colours and filters — every view uses it |
 | `i18n.ts` | translations and every date/time format |
 | `commands.ts`, `keys.ts` | commands, bindings, fuzzy matching |

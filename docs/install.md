@@ -85,6 +85,33 @@ macOS). On a machine without a desktop, add `-no-browser` and open the
 printed address in a browser on the same machine — the server only
 accepts connections from the local machine.
 
+## Updating
+
+The app looks for a newer release once a day. When there is one, an
+**Update to …** button appears in the top bar; without a newer release
+there is no button. Nothing is downloaded until you press it.
+
+What the button does depends on how you installed the app, and it always
+fetches the file for your platform and installation:
+
+| Installed from | The button |
+|---|---|
+| AppImage | downloads the new AppImage, puts it in place of the old file and offers a restart |
+| portable archive (Linux, Windows) | replaces the programs in the folder and offers a restart |
+| web edition archive | replaces `untisd`; on Linux, macOS and the BSDs it restarts itself and reloads the page, on Windows you start it again |
+| `.deb` / `.rpm` | downloads the package to your download folder and shows the command to install it (this needs administrator rights) |
+| Windows installer (`.exe`, `.msi`) | downloads the installer and opens it |
+| macOS disk image | downloads the disk image and opens it; drag **Untis** into **Applications** again |
+| built from source, other platforms | opens the release page |
+
+The folder of a portable installation is recognised by the `portable.txt`
+file in it. Portable folders and web archives of version 1.0.0 predate
+the updater and cannot be recognised; unpack a newer archive over them once.
+
+Every download is checked against the release's `SHA256SUMS` before it is
+used. **Settings › General › Check for updates** switches the daily check
+off; **Status › Check now** looks on request.
+
 ## Verifying downloads
 
 Every release has a `SHA256SUMS` file:
@@ -95,6 +122,6 @@ sha256sum -c --ignore-missing SHA256SUMS      # Linux, BSD: sha256 -c / shasum -
 
 ## Building from source
 
-See the [README](../README.md#development): `make app` for the desktop app,
+See the [README](../README.md#-development): `make app` for the desktop app,
 `make web` for the web edition (`backend/bin/untisd`), and
 `scripts/release.sh` for every release artefact.
