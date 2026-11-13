@@ -4,7 +4,11 @@ All notable changes to this project. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-13
+
+The app can now update itself. Version 1.0.0 has no updater, so this
+release has to be installed by hand once; later versions arrive through
+the update button (see "Updating" in the installation guide).
 
 ### Added
 
@@ -20,6 +24,18 @@ follow [Semantic Versioning](https://semver.org/).
   **Status** shows the result of the last check and has **Check now**.
 - Portable archives contain a `portable.txt` marker, and
   `untisd -version` of the web edition names the archive it came from.
+
+### Fixed
+
+- Timetable: stepping to another week or day no longer rebuilds the whole
+  view, jumps back to the top and drops the keyboard focus.
+- Status: last refresh, next refresh and last error follow background
+  refreshes instead of going stale.
+- A request that is cancelled (a closed or reloaded window) no longer
+  fails the refresh it shared a CLI call with, which showed "untis did
+  not answer in time" for a healthy backend.
+- Settings written in quick succession can no longer leave the backend on
+  the older one, e.g. on sample data after switching to the untis CLI.
 
 ## [1.0.0] - 2026-10-21
 
@@ -51,4 +67,5 @@ First release.
   including two-key sequences.
 - 127 settings in 20 sections, with search, import, export and reset.
 
+[1.1.0]: https://github.com/seesee010/webuntis-frontend/releases/tag/v1.1.0
 [1.0.0]: https://github.com/seesee010/webuntis-frontend/releases/tag/v1.0.0
