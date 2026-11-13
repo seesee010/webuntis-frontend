@@ -44,6 +44,9 @@ type Result struct {
 
 // Status is the updater's state for the frontend.
 type Status struct {
+	// Seq grows with every change. An answer to a request and an event
+	// can reach the frontend in either order; the higher number is newer.
+	Seq       uint64  `json:"seq"`
 	Current   string  `json:"current"`
 	Supported bool    `json:"supported"` // false for development builds
 	Enabled   bool    `json:"enabled"`   // automatic checks
@@ -66,7 +69,11 @@ type Status struct {
 // Config of an Updater.
 type Config struct {
 	Version string // running version
+	// Install describes the installation. Detect, when set, works it out
+	// instead, on first use: finding the owner of the binary asks the
+	// package manager, which must not delay the start of the backend.
 	Install Install
+	Detect  func() Install
 	Source  Source
 	HTTP    *http.Client
 	// Enabled reports whether automatic checks are allowed right now.
@@ -96,7 +103,11 @@ type Updater struct {
 
 	checkMu sync.Mutex // one check at a time; guards client's cache
 
+	instOnce sync.Once
+	inst     Install
+
 	mu          sync.Mutex
+	enabled     bool // the setting as last seen by SettingsChanged
 	st          Status
 	rel         *Release
 	lastPublish time.Time
@@ -127,8 +138,20 @@ func New(cfg Config) *Updater {
 	}
 	u := &Updater{cfg: cfg, kick: make(chan struct{}, 1), client: newClient(cfg.HTTP, cfg.Source, cfg.Version)}
 	u.current, u.ok = ParseVersion(cfg.Version)
-	u.st = Status{Current: cfg.Version, Supported: u.ok, State: StateIdle, Kind: cfg.Install.Kind}
+	u.st = Status{Current: cfg.Version, Supported: u.ok, State: StateIdle}
+	u.enabled = cfg.Enabled()
 	return u
+}
+
+// Install is the running installation, detected on first use.
+func (u *Updater) Install() Install {
+	u.instOnce.Do(func() {
+		u.inst = u.cfg.Install
+		if u.cfg.Detect != nil {
+			u.inst = u.cfg.Detect()
+		}
+	})
+	return u.inst
 }
 
 // Status returns the current state.
@@ -141,6 +164,7 @@ func (u *Updater) Status() Status {
 func (u *Updater) status() Status {
 	st := u.st
 	st.Enabled = u.cfg.Enabled()
+	st.Kind = u.Install().Kind
 	if st.Result != nil {
 		r := *st.Result
 		st.Result = &r
@@ -151,7 +175,9 @@ func (u *Updater) status() Status {
 // set changes the state under the lock and publishes it.
 func (u *Updater) set(change func(*Status)) Status {
 	u.mu.Lock()
+	seq := u.st.Seq
 	change(&u.st)
+	u.st.Seq = seq + 1
 	st := u.status()
 	u.lastPublish = u.cfg.Now()
 	u.mu.Unlock()
@@ -167,6 +193,7 @@ func (u *Updater) Run(ctx context.Context) {
 	if !u.ok {
 		return
 	}
+	u.cleanup()
 	timer := time.NewTimer(u.cfg.FirstCheck)
 	defer timer.Stop()
 	for {
@@ -193,7 +220,16 @@ func (u *Updater) Run(ctx context.Context) {
 // on checks right away, switching it off forgets a pending update, so the
 // button disappears.
 func (u *Updater) SettingsChanged() {
-	if u.cfg.Enabled() {
+	// Called for every change of any setting; only this one matters.
+	enabled := u.cfg.Enabled()
+	u.mu.Lock()
+	changed := enabled != u.enabled
+	u.enabled = enabled
+	u.mu.Unlock()
+	if !changed {
+		return
+	}
+	if enabled {
 		u.mu.Lock()
 		never := u.st.CheckedAt == nil
 		u.mu.Unlock()
@@ -203,6 +239,7 @@ func (u *Updater) SettingsChanged() {
 			default:
 			}
 		}
+		u.set(func(*Status) {}) // tell the frontend the setting is on
 		return
 	}
 	u.mu.Lock()
@@ -213,8 +250,20 @@ func (u *Updater) SettingsChanged() {
 			u.rel = nil
 			*st = Status{Current: st.Current, Supported: st.Supported, State: StateIdle, Kind: st.Kind}
 		})
-	} else if u.cfg.Publish != nil {
-		u.cfg.Publish(u.Status())
+	} else {
+		u.set(func(*Status) {})
+	}
+}
+
+// cleanup removes what an interrupted update left behind: replaced
+// programs that were still running, and half-downloaded files.
+func (u *Updater) cleanup() {
+	in := u.Install()
+	RemoveLeftovers(in)
+	if a := in.Action(); a == ActionRun || a == ActionSave {
+		if dir, err := u.cfg.DownloadsDir(); err == nil {
+			removeTemp(dir)
+		}
 	}
 }
 
@@ -252,9 +301,9 @@ func (u *Updater) Check(ctx context.Context) Status {
 		u.rel = rel
 		st.Latest, st.URL = rel.Version.String(), u.cfg.Source.PageURL(rel.Tag)
 		st.Asset, st.Size, st.Action = "", 0, ActionPage
-		if name := u.cfg.Install.Asset(rel.Version); name != "" {
+		if name := u.Install().Asset(rel.Version); name != "" {
 			if size, ok := rel.Assets[name]; ok {
-				st.Asset, st.Size, st.Action = name, size, u.cfg.Install.Action()
+				st.Asset, st.Size, st.Action = name, size, u.Install().Action()
 			}
 		}
 		if st.State == StateIdle {
@@ -321,7 +370,7 @@ func (u *Updater) Apply(ctx context.Context) error {
 
 // install downloads asset, verifies it and does what action says.
 func (u *Updater) install(ctx context.Context, rel *Release, asset string, action Action) (*Result, error) {
-	in := u.cfg.Install
+	in := u.Install()
 	dir := filepath.Dir(in.Exe)
 	switch {
 	case in.Kind == KindAppImage:
@@ -404,6 +453,11 @@ func (u *Updater) install(ctx context.Context, rel *Release, asset string, actio
 		if action == ActionSave {
 			res.Command = installCommand(in.Kind, file)
 			break
+		}
+		// Label the installer as downloaded, the way a browser does, so
+		// the system applies its usual checks when it is opened.
+		if err := markDownloaded(file, u.cfg.Source.AssetURL(rel.Tag, asset)); err != nil {
+			u.cfg.Log.Debug("could not mark the download", "file", file, "err", err)
 		}
 		if u.cfg.Open == nil {
 			return nil, fmt.Errorf("saved %s, but cannot open it here", file)

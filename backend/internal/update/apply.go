@@ -83,10 +83,15 @@ func RemoveLeftovers(in Install) {
 		dirs[filepath.Dir(t)] = true
 	}
 	for dir := range dirs {
-		stale, _ := filepath.Glob(filepath.Join(dir, tmpPattern))
-		for _, f := range stale {
-			_ = os.Remove(f)
-		}
+		removeTemp(dir)
+	}
+}
+
+// removeTemp deletes the updater's temporary files in dir.
+func removeTemp(dir string) {
+	stale, _ := filepath.Glob(filepath.Join(dir, tmpPattern))
+	for _, f := range stale {
+		_ = os.Remove(f)
 	}
 }
 

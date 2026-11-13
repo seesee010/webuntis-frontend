@@ -218,6 +218,8 @@ describe("update button", () => {
     await settle();
     expect(ctx.api.applyUpdate).toHaveBeenCalledTimes(1);
     expect(ctx.toasts.items.get().map((x) => x.title)).toEqual(["Release page opened"]);
+    // the address is in the message, for machines where no browser opened
+    expect(ctx.toasts.items.get()[0].body).toContain("https://example.org/v1.1.0");
     // still pending: the button stays
     expect(btn.hidden).toBe(false);
     expect(dialogs()).toHaveLength(0);

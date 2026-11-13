@@ -415,6 +415,7 @@ func TestRunChecksOnlyWhenEnabled(t *testing.T) {
 	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
 	h := newHarness(t, "1.0.0", webInstall(t), gh, func(c *Config) { c.FirstCheck, c.Interval = time.Millisecond, time.Hour })
 	h.enabled.Store(false)
+	h.SettingsChanged()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan struct{})
@@ -455,11 +456,17 @@ func TestRunChecksOnlyWhenEnabled(t *testing.T) {
 func TestRunChecksAgainAfterTheInterval(t *testing.T) {
 	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
 	h := newHarness(t, "1.0.0", webInstall(t), gh, func(c *Config) { c.FirstCheck, c.Interval = time.Millisecond, 15*time.Millisecond })
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
-	h.Run(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { h.Run(ctx); close(done) }()
+	deadline := time.Now().Add(10 * time.Second)
+	for gh.apiCalls.Load() < 3 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	<-done
 	if n := gh.apiCalls.Load(); n < 3 {
-		t.Errorf("only %d checks in 200ms with a 15ms interval", n)
+		t.Errorf("only %d checks with a 15ms interval", n)
 	}
 }
 
@@ -939,5 +946,107 @@ func TestOpenerFailureIsReported(t *testing.T) {
 	// the verified installer is kept and named, so the user can start it
 	if st.State != StateFailed || !strings.Contains(st.Error, file) || read(t, file) != "installer" {
 		t.Errorf("status = %+v", st)
+	}
+}
+
+// --- order, noise and cleanup -------------------------------------------------
+
+// The answer to "apply" and the events of the update travel separately
+// and can arrive in either order; the sequence number tells which is newer.
+func TestEveryChangeHasAHigherSequenceNumber(t *testing.T) {
+	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
+	h := newHarness(t, "1.0.0", webInstall(t), gh, nil)
+	h.Check(context.Background())
+	if err := h.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	final := h.wait(t)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for i := 1; i < len(h.events); i++ {
+		if h.events[i].Seq <= h.events[i-1].Seq {
+			t.Fatalf("event %d has seq %d after %d", i, h.events[i].Seq, h.events[i-1].Seq)
+		}
+	}
+	if last := h.events[len(h.events)-1]; last.State != StateDone || last.Seq != final.Seq {
+		t.Errorf("last event %s seq %d, status seq %d", last.State, last.Seq, final.Seq)
+	}
+}
+
+// Every saved setting calls SettingsChanged; only a change of the update
+// setting may reach the frontend.
+func TestOtherSettingsDoNotPublish(t *testing.T) {
+	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
+	h := newHarness(t, "1.0.0", webInstall(t), gh, nil)
+	h.Check(context.Background())
+	count := func() int { h.mu.Lock(); defer h.mu.Unlock(); return len(h.events) }
+	before := count()
+	for range 5 {
+		h.SettingsChanged()
+	}
+	if n := count(); n != before {
+		t.Errorf("%d events for settings that did not change the update check", n-before)
+	}
+	h.enabled.Store(false)
+	h.SettingsChanged()
+	h.SettingsChanged()
+	if n := count(); n != before+1 {
+		t.Errorf("%d events for switching the check off, want 1", n-before)
+	}
+	if n := gh.apiCalls.Load(); n != 1 {
+		t.Errorf("%d requests", n)
+	}
+}
+
+func TestInstallationIsDetectedOnFirstUse(t *testing.T) {
+	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
+	in := webInstall(t)
+	var calls atomic.Int32
+	h := newHarness(t, "1.0.0", Install{}, gh, func(c *Config) {
+		c.Detect = func() Install { calls.Add(1); return in }
+	})
+	if n := calls.Load(); n != 0 {
+		t.Fatalf("detected %d times while starting", n)
+	}
+	if st := h.Check(context.Background()); st.Kind != KindWeb || st.Asset == "" {
+		t.Errorf("status = %+v", st)
+	}
+	h.Status()
+	h.finish(t)
+	if n := calls.Load(); n != 1 {
+		t.Errorf("detected %d times, want once", n)
+	}
+}
+
+// A download that was cut off (the app was closed) leaves a hidden
+// temporary file; the next start removes it, also from the download
+// folder, and touches nothing else there.
+func TestStartRemovesInterruptedDownloads(t *testing.T) {
+	gh := newFakeGitHub(t, "v1.1.0", webRelease(t))
+	exe := write(t, filepath.Join(t.TempDir(), "untisd"), "installed")
+	h := newHarness(t, "1.0.0", Install{Kind: KindDeb, OS: "linux", Arch: "amd64", Exe: exe}, gh, func(c *Config) { c.FirstCheck = time.Hour })
+	stale := write(t, filepath.Join(h.downloads, ".untis-update-123"), "half a package")
+	mine := write(t, filepath.Join(h.downloads, "holiday.jpg"), "the user's file")
+	earlier := write(t, filepath.Join(h.downloads, "Untis_1.0.5_amd64.deb"), "an earlier, complete download")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { h.Run(ctx); close(done) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(stale); err != nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	<-done
+	if _, err := os.Stat(stale); err == nil {
+		t.Error("the interrupted download is still there")
+	}
+	if read(t, mine) != "the user's file" || read(t, earlier) != "an earlier, complete download" || read(t, exe) != "installed" {
+		t.Error("other files were touched")
+	}
+	if n := gh.apiCalls.Load(); n != 0 {
+		t.Errorf("%d requests during cleanup", n)
 	}
 }

@@ -102,6 +102,14 @@ machine and the `untis` CLI. It does three things:
    Replaced programs are moved aside first and moved back if a later
    step fails. `SHA256SUMS` comes from the same release, so it protects
    against a broken download, not against a compromised release.
+   Installers are labelled as downloaded (Mark of the Web on Windows, the
+   quarantine attribute on macOS) before they are opened, so the system
+   checks them as it would after a download in a browser.
+
+The installation is detected on first use, not while starting, because
+asking `dpkg`/`rpm` takes time. Every status carries a sequence number
+(`seq`): the answer to a request and the events of the same update can
+reach the frontend in either order, and the higher number wins.
 
 The web edition restarts in place on Unix (`exec`), handing its address
 and token to the new process through the environment, so the open tab

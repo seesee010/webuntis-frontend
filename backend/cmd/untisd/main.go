@@ -137,14 +137,13 @@ func run() error {
 	bus := events.NewBus()
 	svc := service.New(store, newProvider, bus, log)
 
-	install := update.Detect(update.OSEnv(*web, webTarget))
-	update.RemoveLeftovers(install)
 	source, err := update.SourceFrom(os.Getenv)
 	if err != nil {
 		log.Warn("ignoring the update source override", "err", err)
 	}
 	updater := update.New(update.Config{
-		Version: version, Install: install, Source: source,
+		Version: version, Source: source,
+		Detect:     func() update.Install { return update.Detect(update.OSEnv(*web, webTarget)) },
 		Enabled:    func() bool { return settings.UpdateCheck(store.Get()) },
 		Open:       openBrowser,
 		CanRestart: *web && canReexec,
@@ -223,8 +222,9 @@ func run() error {
 	// The event stream never ends on its own, so Shutdown times out;
 	// close what is left and start the new version on the same address.
 	_ = srv.Close()
-	log.Info("restarting into the updated version", "exe", install.Exe)
-	return reexec(install.Exe, []string{resumeAddrEnv + "=" + ln.Addr().String(), resumeTokenEnv + "=" + *token})
+	exe := updater.Install().Exe
+	log.Info("restarting into the updated version", "exe", exe)
+	return reexec(exe, []string{resumeAddrEnv + "=" + ln.Addr().String(), resumeTokenEnv + "=" + *token})
 }
 
 // withUI serves the API under /api/ and the embedded frontend elsewhere.
@@ -249,7 +249,12 @@ func browserCommand(goos, url string) (string, []string) {
 
 func openBrowser(url string) error {
 	name, args := browserCommand(runtime.GOOS, url)
-	return exec.Command(name, args...).Start()
+	cmd := exec.Command(name, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }() // do not leave the opener behind as a zombie
+	return nil
 }
 
 // newProvider builds the provider selected in the settings.

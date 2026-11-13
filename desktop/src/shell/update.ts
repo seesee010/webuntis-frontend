@@ -63,7 +63,7 @@ export function updateButton(ctx: AppContext, scope: Scope): HTMLElement {
       await ctx.update.apply();
       if (st.action === "page") {
         pressed = false;
-        ctx.toasts.show("info", t("Release page opened"), t("Version {version} has no automatic update for this installation. Download it from the page that just opened in your browser.", { version: st.latest ?? "" }), 9000);
+        ctx.toasts.show("info", t("Release page opened"), t("Version {version} has no automatic update for this installation. Download it from the page that just opened in your browser.", { version: st.latest ?? "" }) + (st.url ? ` ${st.url}` : ""), 12000);
       }
     } catch (err) {
       pressed = false;

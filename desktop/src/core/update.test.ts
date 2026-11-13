@@ -49,6 +49,41 @@ describe("UpdateService", () => {
     expect(update.status.get()?.result?.restart).toBe("app");
   });
 
+  // An update that fails at once: its event arrives before the answer to
+  // the click, which still says "downloading".
+  it("does not let a late answer overwrite a newer event", async () => {
+    let answer: (st: UpdateStatus) => void = () => {};
+    const { bus, update } = setup({ applyUpdate: vi.fn(() => new Promise<UpdateStatus>((r) => (answer = r))) });
+    bus.emit("update", status({ seq: 3, state: "available", latest: "1.1.0" }));
+    const pressed = update.apply();
+    bus.emit("update", status({ seq: 5, state: "failed", latest: "1.1.0", error: "no SHA256SUMS" }));
+    answer(status({ seq: 4, state: "downloading", latest: "1.1.0" }));
+    expect((await pressed).state).toBe("failed");
+    expect(update.status.get()).toMatchObject({ state: "failed", error: "no SHA256SUMS" });
+
+    // the same for the other requests
+    const { bus: bus2, update: update2 } = setup({
+      update: vi.fn(async () => status({ seq: 1 })),
+      checkUpdate: vi.fn(async () => status({ seq: 2 })),
+    });
+    bus2.emit("update", status({ seq: 9, state: "available", latest: "1.1.0" }));
+    await update2.load();
+    await update2.check();
+    expect(update2.status.get()?.state).toBe("available");
+  });
+
+  it("takes newer, equal and restarted states", async () => {
+    const { bus, update } = setup();
+    bus.emit("update", status({ seq: 5, state: "available", latest: "1.1.0" }));
+    bus.emit("update", status({ seq: 5, state: "downloading", latest: "1.1.0" }));
+    expect(update.status.get()?.state).toBe("downloading");
+    bus.emit("update", status({ seq: 6, state: "done", latest: "1.1.0" }));
+    expect(update.status.get()?.state).toBe("done");
+    // a restarted backend counts from the start again, as another version
+    bus.emit("update", status({ seq: 1, current: "1.1.0" }));
+    expect(update.status.get()).toMatchObject({ current: "1.1.0", state: "idle" });
+  });
+
   it("checks and applies only when asked", async () => {
     const { api, update } = setup();
     await update.load();

@@ -207,9 +207,9 @@ is merged. Tests only use made-up data and never run the real `untis` CLI.
   (`~/.config` on Linux) with mode `600`.
   Credentials stay with the `untis` CLI and never pass through this app.
 - The only request the app makes on its own is the update check: once a
-  day it asks GitHub for the latest release of this repository. It sends
-  the app version and nothing about you or your timetable, and
-  **Settings › General › Check for updates** switches it off.
+  day it asks GitHub for the latest release of this repository. GitHub
+  sees your IP address and the app version, nothing about your timetable
+  or account. **Settings › General › Check for updates** switches it off.
 - Screenshots, fixtures and tests use only the built-in fictional data.
 
 ## 📄 License

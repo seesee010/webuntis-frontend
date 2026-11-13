@@ -16,7 +16,19 @@ export class UpdateService {
     private readonly api: ApiClient,
     bus: Bus<AppEvents>,
   ) {
-    bus.on("update", (st) => this.sig.set(st));
+    bus.on("update", (st) => this.accept(st));
+  }
+
+  /**
+   * Takes a status unless a newer one is already known. The answer to a
+   * request and the events of the same update travel separately: when an
+   * update fails at once, its "failed" event overtakes the answer to
+   * "apply", which still says "downloading" and must not win.
+   */
+  private accept(st: UpdateStatus | null): void {
+    const cur = this.sig.get();
+    if (st && cur && st.current === cur.current && (st.seq ?? 0) < (cur.seq ?? 0)) return;
+    this.sig.set(st);
   }
 
   /** Null until the first answer, and with a backend that has no updater. */
@@ -27,7 +39,7 @@ export class UpdateService {
   /** Reads the current state. Failing is fine: then there is no button. */
   async load(): Promise<void> {
     try {
-      this.sig.set(await this.api.update());
+      this.accept(await this.api.update());
     } catch {
       /* no updater in this backend, or it is not reachable */
     }
@@ -35,16 +47,14 @@ export class UpdateService {
 
   /** Looks for a newer release now ("Check now"). */
   async check(): Promise<UpdateStatus> {
-    const st = await this.api.checkUpdate();
-    this.sig.set(st);
-    return st;
+    this.accept(await this.api.checkUpdate());
+    return this.sig.get()!;
   }
 
   /** The update button. */
   async apply(): Promise<UpdateStatus> {
-    const st = await this.api.applyUpdate();
-    this.sig.set(st);
-    return st;
+    this.accept(await this.api.applyUpdate());
+    return this.sig.get()!;
   }
 
   openPage(): Promise<UpdateStatus> {

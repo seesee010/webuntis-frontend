@@ -100,8 +100,8 @@ fetches the file for your platform and installation:
 | portable archive (Linux, Windows) | replaces the programs in the folder and offers a restart |
 | web edition archive | replaces `untisd`; on Linux, macOS and the BSDs it restarts itself and reloads the page, on Windows you start it again |
 | `.deb` / `.rpm` | downloads the package to your download folder and shows the command to install it (this needs administrator rights) |
-| Windows installer (`.exe`, `.msi`) | downloads the installer and opens it |
-| macOS disk image | downloads the disk image and opens it; drag **Untis** into **Applications** again |
+| Windows installer (`.exe`, `.msi`) | downloads the installer and opens it; SmartScreen may warn as described under [Windows](#windows) |
+| macOS disk image | downloads the disk image and opens it; drag **Untis** into **Applications** again. Gatekeeper treats it like any download, see [macOS](#macos) |
 | built from source, other platforms | opens the release page |
 
 The folder of a portable installation is recognised by the `portable.txt`

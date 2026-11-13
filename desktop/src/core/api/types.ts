@@ -216,6 +216,8 @@ export interface UpdateResult {
 
 /** The updater's state (GET /api/update and the "update" event). */
 export interface UpdateStatus {
+  /** Grows with every change in the backend; the higher number is newer. */
+  seq?: number;
   current: string;
   /** False for development builds, which are never updated. */
   supported: boolean;
