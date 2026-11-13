@@ -99,3 +99,14 @@ func BackendFrom(doc Document) Backend {
 	}
 	return b
 }
+
+// UpdateCheck reports whether the app may ask for newer releases on its
+// own ("updates.check"). It is on unless the user switched it off.
+func UpdateCheck(doc Document) bool {
+	if updates, ok := doc["updates"].(map[string]any); ok {
+		if check, ok := updates["check"].(bool); ok {
+			return check
+		}
+	}
+	return true
+}
