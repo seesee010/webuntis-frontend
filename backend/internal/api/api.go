@@ -19,6 +19,7 @@ import (
 	"github.com/seesee010/webuntis-frontend/backend/internal/provider"
 	"github.com/seesee010/webuntis-frontend/backend/internal/service"
 	"github.com/seesee010/webuntis-frontend/backend/internal/settings"
+	"github.com/seesee010/webuntis-frontend/backend/internal/update"
 )
 
 // Config of the API server.
@@ -27,6 +28,11 @@ type Config struct {
 	Version string
 	// Origins allowed for CORS (the Tauri webview and the Vite dev server).
 	Origins []string
+	// Updater is the update check behind /api/update; nil turns it off.
+	Updater *update.Updater
+	// Restart restarts the web edition after an update. Nil when the
+	// program cannot restart itself (the desktop shell restarts instead).
+	Restart func() error
 }
 
 // DefaultOrigins are the origins the desktop shell and dev server use.
@@ -61,6 +67,11 @@ func New(cfg Config, svc *service.Service, store *settings.Store, log *slog.Logg
 	mux.HandleFunc("PATCH /api/settings", s.patchSettings)
 	mux.HandleFunc("DELETE /api/settings", s.resetSettings)
 	mux.HandleFunc("GET /api/events", s.events)
+	mux.HandleFunc("GET /api/update", s.updateStatus)
+	mux.HandleFunc("POST /api/update/check", s.updateCheck)
+	mux.HandleFunc("POST /api/update/apply", s.updateApply)
+	mux.HandleFunc("POST /api/update/page", s.updatePage)
+	mux.HandleFunc("POST /api/update/restart", s.updateRestart)
 	return s.recover(s.cors(s.auth(mux)))
 }
 
@@ -260,6 +271,86 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data)
 			flusher.Flush()
 		}
+	}
+}
+
+// --- updates ----------------------------------------------------------------
+
+// updater answers for builds without an updater (tests, embedding).
+func (s *Server) updater(w http.ResponseWriter) *update.Updater {
+	if s.cfg.Updater == nil {
+		writeError(w, http.StatusNotFound, "not-found", "updates are not available in this build")
+	}
+	return s.cfg.Updater
+}
+
+func (s *Server) updateStatus(w http.ResponseWriter, _ *http.Request) {
+	if u := s.updater(w); u != nil {
+		writeJSON(w, http.StatusOK, u.Status())
+	}
+}
+
+// updateCheck looks for a release now. A failed look is part of the
+// answer (checkError), not an HTTP error: there is nothing the user has
+// to do about it.
+func (s *Server) updateCheck(w http.ResponseWriter, r *http.Request) {
+	if u := s.updater(w); u != nil {
+		writeJSON(w, http.StatusOK, u.Check(r.Context()))
+	}
+}
+
+// updateApply is the update button. The download runs on after the
+// request; progress and result arrive as "update" events.
+func (s *Server) updateApply(w http.ResponseWriter, _ *http.Request) {
+	u := s.updater(w)
+	if u == nil {
+		return
+	}
+	// Not the request's context: the download must not stop when the
+	// window that started it is closed or reloaded.
+	if err := u.Apply(context.Background()); err != nil {
+		writeUpdateError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, u.Status())
+}
+
+func (s *Server) updatePage(w http.ResponseWriter, _ *http.Request) {
+	u := s.updater(w)
+	if u == nil {
+		return
+	}
+	if err := u.OpenPage(); err != nil {
+		writeUpdateError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, u.Status())
+}
+
+// updateRestart restarts the web edition once the new version is in place.
+func (s *Server) updateRestart(w http.ResponseWriter, _ *http.Request) {
+	u := s.updater(w)
+	if u == nil {
+		return
+	}
+	st := u.Status()
+	if s.cfg.Restart == nil || st.State != update.StateDone || st.Result == nil || st.Result.Restart != update.RestartServer {
+		writeError(w, http.StatusConflict, "bad-request", "there is no installed update to restart into")
+		return
+	}
+	if err := s.cfg.Restart(); err != nil {
+		writeError(w, http.StatusInternalServerError, "internal", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusAccepted, st)
+}
+
+func writeUpdateError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, update.ErrNothingToDo), errors.Is(err, update.ErrBusy):
+		writeError(w, http.StatusConflict, "bad-request", err.Error())
+	default:
+		writeError(w, http.StatusInternalServerError, "internal", err.Error())
 	}
 }
 

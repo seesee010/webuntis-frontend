@@ -58,10 +58,22 @@ goarch() {
   esac
 }
 
-build() { # build OUTFILE GOOS GOARCH [GOARM]
+build() { # build OUTFILE GOOS GOARCH [GOARM]; EXTRA_LDFLAGS adds linker flags
   local out=$1 goos=$2 goarch=$3 goarm=${4:-}
   (cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch GOARM=$goarm \
-    go build -trimpath -ldflags "$LDFLAGS" -o "$out" ./cmd/untisd)
+    go build -trimpath -ldflags "$LDFLAGS ${EXTRA_LDFLAGS:-}" -o "$out" ./cmd/untisd)
+}
+
+# The portable archives carry this file. The built-in updater only replaces
+# the programs in a folder that has it (backend/internal/update).
+portable_marker() { # portable_marker DIR
+  cat >"$1/portable.txt" <<TXT
+Untis $VERSION, portable.
+
+This file marks the folder as a portable installation. The app's update
+button replaces the programs in this folder with the ones of the newer
+release. Without this file the button opens the release page instead.
+TXT
 }
 
 sidecar() {
@@ -93,7 +105,9 @@ web() {
   mkdir -p "$stage/$name" "$OUT"
   local bin=untisd
   [[ $goos == windows ]] && bin=untisd.exe
-  build "$stage/$name/$bin" "$goos" "$goarch" "$goarm"
+  # The binary knows which archive it came from, so its update button
+  # fetches the same one of the newer release.
+  EXTRA_LDFLAGS="-X main.webTarget=$goos-$suffix" build "$stage/$name/$bin" "$goos" "$goarch" "$goarm"
   cat >"$stage/$name/README.txt" <<TXT
 Untis web edition $VERSION ($goos/$suffix)
 
@@ -165,12 +179,14 @@ collect() {
       name=Untis_${VERSION}_${arch}-linux-portable
       mkdir -p "$stage/$name"
       cp "$rel/untis-desktop" "$rel/untisd" "$stage/$name/"
+      portable_marker "$stage/$name"
       tar -C "$stage" -czf "$OUT/$name.tar.gz" "$name"
       n=$((n + 1)) ;;
     windows)
       name=Untis_${VERSION}_${arch}-windows-portable
       mkdir -p "$stage/$name"
       cp "$rel/untis-desktop.exe" "$rel/untisd.exe" "$stage/$name/"
+      portable_marker "$stage/$name"
       zipdir "$OUT/$name.zip" "$stage/$name"
       n=$((n + 1)) ;;
   esac
