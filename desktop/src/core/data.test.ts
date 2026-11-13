@@ -65,6 +65,15 @@ describe("DataService", () => {
     expect(data.status.get()?.service.lastRefresh).toBe("2026-10-07T09:00:00Z");
   });
 
+  it("forwards update events to the bus", () => {
+    const { bus, data, emit } = setup();
+    const seen = vi.fn();
+    bus.on("update", seen);
+    data.start();
+    emit({ type: "update", at: "", data: { state: "available", latest: "1.1.0" } });
+    expect(seen).toHaveBeenCalledWith({ state: "available", latest: "1.1.0" });
+  });
+
   it("forwards change events to the bus", () => {
     const { bus, data, emit } = setup();
     const seen = vi.fn();

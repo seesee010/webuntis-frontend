@@ -38,6 +38,14 @@ describe("datasource", () => {
 });
 
 describe("general", () => {
+  it("checks for updates unless the user switches it off", async () => {
+    const ctx = await testContext(snapshot(), [general]);
+    expect(ctx.settings.get("updates.check")).toBe(true);
+    const field = general.settings![0].fields.find((f) => f.key === "updates.check")!;
+    expect(field.type).toBe("toggle");
+    expect(field.description).toContain("until you press it");
+  });
+
   it("opens the start page and can remember the last page", async () => {
     history.replaceState(null, "", "#");
     const ctx = await testContext(snapshot(), [general, status], { ui: { startPage: "/status", rememberLastPage: true } });

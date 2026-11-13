@@ -66,6 +66,16 @@ check "windows binary" "1" "$(unzip -l "$zipf" | grep -c 'untisd.exe')"
 armf=$($R web linux arm 7)
 check "armv7 name" "untis-web-$(cat VERSION)-linux-armv7.tar.gz" "$(basename "$armf")"
 
+# A web binary knows the archive it came from (the updater downloads the
+# same one of a newer release); the sidecar above does not.
+host=$(go env GOOS)-$(go env GOARCH)
+hostf=$($R web "$(go env GOOS)" "$(go env GOARCH)")
+unpack=$(mktemp -d)
+if [[ $hostf == *.zip ]]; then unzip -q "$hostf" -d "$unpack"; else tar -xzf "$hostf" -C "$unpack"; fi
+check "web binary knows its target" "untisd $(cat VERSION) (web $host)" "$("$unpack"/*/untisd* -version)"
+check "archive name matches the target" "untis-web-$(cat VERSION)-$host" "$(basename "$hostf" | sed -E 's/\.(tar\.gz|zip)$//')"
+rm -rf "$unpack"
+
 # collect: a fake Tauri output tree for Linux and Windows.
 fake=$(mktemp -d)
 V=$(cat VERSION)
@@ -84,8 +94,11 @@ TARGET_DIR=$fake $R collect x86_64-unknown-linux-gnu >/dev/null
 TARGET_DIR=$fake $R collect universal-apple-darwin >/dev/null
 TARGET_DIR=$fake $R collect aarch64-pc-windows-msvc >/dev/null
 check "collected files" "Untis-${V}-1.x86_64.rpm Untis_${V}_amd64.AppImage Untis_${V}_amd64.deb Untis_${V}_arm64-setup.exe Untis_${V}_arm64-windows-portable.zip Untis_${V}_universal.app.tar.gz Untis_${V}_universal.dmg Untis_${V}_x64-linux-portable.tar.gz" "$(ls release | sort | xargs)"
-check "linux portable contents" "untis-desktop untisd" "$(tar -tzf release/Untis_${V}_x64-linux-portable.tar.gz | grep -v '/$' | xargs -n1 basename | sort | xargs)"
+check "linux portable contents" "portable.txt untis-desktop untisd" "$(tar -tzf release/Untis_${V}_x64-linux-portable.tar.gz | grep -v '/$' | xargs -n1 basename | sort | xargs)"
 check "windows portable contents" "2" "$(unzip -l release/Untis_${V}_arm64-windows-portable.zip | grep -c '\.exe')"
+check "windows portable marker" "1" "$(unzip -l release/Untis_${V}_arm64-windows-portable.zip | grep -c 'portable\.txt')"
+# The marker has the name the updater looks for.
+check "marker name in the updater" "1" "$(grep -c 'PortableMarker = "portable.txt"' backend/internal/update/install.go)"
 if TARGET_DIR=$fake/none $R collect x86_64-unknown-linux-gnu >/dev/null 2>&1; then echo "FAIL collect without bundles"; fail=1; else echo "ok   collect without bundles fails"; fi
 rm -rf "$fake" release
 $R web freebsd amd64 >/dev/null

@@ -14,6 +14,7 @@ const (
 	TypeError    = "error"    // a background refresh failed
 	TypeSettings = "settings" // the settings document changed
 	TypeProvider = "provider" // the data source was switched
+	TypeUpdate   = "update"   // the updater has news: a release, progress, a result
 )
 
 // Event is one message on the bus.

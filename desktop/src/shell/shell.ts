@@ -3,6 +3,7 @@ import { h, replace } from "@/core/dom";
 import { icon } from "@/core/icons";
 import { Scope } from "@/core/reactive";
 import type { ErrorInfo } from "@/core/api/types";
+import { updateButton } from "./update";
 
 /** Builds the application frame and swaps views on navigation. */
 export function mountShell(root: HTMLElement, ctx: AppContext): void {
@@ -123,7 +124,7 @@ function statusArea(ctx: AppContext, scope: Scope): HTMLElement {
   scope.watch(ctx.data.overview, render);
   scope.watch(ctx.settings.document, render, false);
   scope.interval(render, 30_000);
-  return h("div", { class: "topbar-status" }, when, btn);
+  return h("div", { class: "topbar-status" }, updateButton(ctx, scope), when, btn);
 }
 
 function errorBanner(ctx: AppContext, err: ErrorInfo): HTMLElement {

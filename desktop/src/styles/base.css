@@ -111,6 +111,13 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .topbar-title { font-size: 1.15em; margin: 0; font-weight: 650; }
 .topbar-status { display: flex; align-items: center; gap: 8px; }
+/* The update button: only in the page while an update is pending. */
+.update-btn { gap: 6px; white-space: nowrap; }
+.update-btn[hidden] { display: none; }
+.update-btn.busy { opacity: 0.8; cursor: progress; }
+.update-outcome p { margin: 10px 0; }
+.update-command { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; font-size: 0.9em; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 
 /* --- primitives ------------------------------------------------------ */
 .card {

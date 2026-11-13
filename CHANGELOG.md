@@ -4,6 +4,23 @@ All notable changes to this project. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Update button: the app looks for a newer release once a day and shows
+  an **Update to …** button in the top bar when there is one. Pressing it
+  downloads the file that matches the platform and the way the app was
+  installed, verifies it against the release's `SHA256SUMS` and installs
+  it: AppImage, portable folders and the web edition are replaced in
+  place and restarted, Windows installers and the macOS disk image are
+  opened, `.deb`/`.rpm` packages are downloaded with the command to
+  install them. Nothing is downloaded before the button is pressed.
+- **Settings › General › Check for updates** switches the daily check off;
+  **Status** shows the result of the last check and has **Check now**.
+- Portable archives contain a `portable.txt` marker, and
+  `untisd -version` of the web edition names the archive it came from.
+
 ## [1.0.0] - 2026-10-21
 
 First release.

@@ -62,6 +62,7 @@ export const dynamicStrings = [
   // status page rows
   "Backend", "Connection", "Data source", "CLI version", "Last refresh", "Next refresh", "Last error",
   "Overview window", "School", "Settings file", "Section errors", "live event stream", "disconnected",
+  "Last update check",
   // lesson dialog rows
   "When", "Status", "Subject", "Teacher", "Room", "Classes", "Lesson text", "Info", "Substitution", "Notes",
   // list sections, widget sizes, excuse states, local marks

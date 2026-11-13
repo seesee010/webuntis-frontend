@@ -50,6 +50,14 @@ async fn backend_info(state: State<'_, Backend>) -> Result<BackendInfo, String> 
     res.clone().expect("checked by wait_for")
 }
 
+/// Restarts the app after the built-in updater replaced its files (the
+/// AppImage or the programs of a portable folder). The backend is stopped
+/// by the exit handler below; the new process starts the new one.
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    app.request_restart();
+}
+
 fn spawn_backend(app: &tauri::AppHandle) -> Result<(CommandChild, watch::Receiver<Option<Handshake>>), String> {
     let (tx, rx) = watch::channel(None);
     let (mut events, child) = app
@@ -108,7 +116,7 @@ pub fn run() {
             app.manage(backend);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![backend_info])
+        .invoke_handler(tauri::generate_handler![backend_info, restart_app])
         .build(tauri::generate_context!())
         .expect("error while building the untis desktop app");
 

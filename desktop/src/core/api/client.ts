@@ -7,6 +7,7 @@ import type {
   SettingsDocument,
   Snapshot,
   Status,
+  UpdateStatus,
 } from "./types";
 
 /** Where and how to reach untisd. */
@@ -110,12 +111,44 @@ export class ApiClient {
     return this.request("DELETE", "/api/settings");
   }
 
+  /** Liveness and version of the backend; needs no token. */
+  health(): Promise<{ status: string; version: string }> {
+    return this.request("GET", "/api/health");
+  }
+
+  /** The updater's state: whether a newer release exists and how far an
+   * update is. */
+  update(): Promise<UpdateStatus> {
+    return this.request("GET", "/api/update");
+  }
+
+  /** Looks for a newer release now. */
+  checkUpdate(): Promise<UpdateStatus> {
+    return this.request("POST", "/api/update/check");
+  }
+
+  /** The update button: starts the download. Progress and the outcome
+   * arrive as "update" events. */
+  applyUpdate(): Promise<UpdateStatus> {
+    return this.request("POST", "/api/update/apply");
+  }
+
+  /** Opens the release page in the system browser. */
+  openUpdatePage(): Promise<UpdateStatus> {
+    return this.request("POST", "/api/update/page");
+  }
+
+  /** Restarts the web edition into the version it just installed. */
+  restartBackend(): Promise<UpdateStatus> {
+    return this.request("POST", "/api/update/restart");
+  }
+
   /** Subscribes to the backend's server-sent events. Returns a function
    * that closes the stream. EventSource reconnects on its own. */
   events(onEvent: (ev: BackendEvent) => void, onState?: (connected: boolean) => void): () => void {
     const url = `${this.conn.baseUrl}/api/events?token=${encodeURIComponent(this.conn.token)}`;
     const source = new EventSource(url);
-    const types: BackendEvent["type"][] = ["snapshot", "changes", "error", "settings", "provider"];
+    const types: BackendEvent["type"][] = ["snapshot", "changes", "error", "settings", "provider", "update"];
     for (const t of types) {
       source.addEventListener(t, (msg) => {
         try {

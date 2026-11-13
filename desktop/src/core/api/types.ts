@@ -196,8 +196,49 @@ export interface Status {
 
 export type SettingsDocument = Record<string, unknown>;
 
+/** How the running app was installed; decides which release file fits. */
+export type InstallKind = "web" | "appimage" | "portable" | "deb" | "rpm" | "nsis" | "msi" | "dmg" | "unknown";
+
+/** What the update button does: replace the programs in place, download
+ * and open an installer, download a package, or open the release page. */
+export type UpdateAction = "replace" | "run" | "save" | "page";
+
+export interface UpdateResult {
+  action: UpdateAction;
+  /** The downloaded installer or package. */
+  file?: string;
+  /** The command that installs the package. */
+  command?: string;
+  /** How the installed version takes effect: the desktop app restarts,
+   * the web edition restarts itself, or the user starts it again. */
+  restart?: "app" | "server" | "manual";
+}
+
+/** The updater's state (GET /api/update and the "update" event). */
+export interface UpdateStatus {
+  /** Grows with every change in the backend; the higher number is newer. */
+  seq?: number;
+  current: string;
+  /** False for development builds, which are never updated. */
+  supported: boolean;
+  /** Whether the automatic check is switched on. */
+  enabled: boolean;
+  state: "idle" | "available" | "downloading" | "done" | "failed";
+  kind: InstallKind;
+  latest?: string;
+  url?: string;
+  action?: UpdateAction;
+  asset?: string;
+  size?: number;
+  done?: number;
+  result?: UpdateResult;
+  error?: string;
+  checkedAt: string | null;
+  checkError?: string;
+}
+
 export interface BackendEvent<T = unknown> {
-  type: "snapshot" | "changes" | "error" | "settings" | "provider";
+  type: "snapshot" | "changes" | "error" | "settings" | "provider" | "update";
   at: string;
   data?: T;
 }

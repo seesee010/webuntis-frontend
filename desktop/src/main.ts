@@ -11,6 +11,7 @@ async function boot(root: HTMLElement): Promise<void> {
   setupModules(ctx);
   mountShell(root, ctx);
   ctx.data.start();
+  void ctx.update.load();
   window.addEventListener("beforeunload", () => void ctx.settings.flush());
 }
 

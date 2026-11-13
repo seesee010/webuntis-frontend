@@ -155,3 +155,20 @@ func must(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+func TestUpdateCheckSetting(t *testing.T) {
+	for name, c := range map[string]struct {
+		doc  Document
+		want bool
+	}{
+		"default":         {Document{}, true},
+		"switched off":    {Document{"updates": map[string]any{"check": false}}, false},
+		"switched on":     {Document{"updates": map[string]any{"check": true}}, true},
+		"wrong type":      {Document{"updates": map[string]any{"check": "no"}}, true},
+		"wrong container": {Document{"updates": "off"}, true},
+	} {
+		if got := UpdateCheck(c.doc); got != c.want {
+			t.Errorf("%s: %v", name, got)
+		}
+	}
+}

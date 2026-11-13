@@ -17,6 +17,12 @@ export function fakeApi(snap: Snapshot, settings: Record<string, unknown> = {}):
     refresh: vi.fn(async () => ({ snapshot: snap, changes: [] })),
     status: vi.fn(async () => null),
     who: vi.fn(async () => []),
+    health: vi.fn(async () => ({ status: "ok", version: "test" })),
+    update: vi.fn(async () => null),
+    checkUpdate: vi.fn(async () => null),
+    applyUpdate: vi.fn(async () => null),
+    openUpdatePage: vi.fn(async () => null),
+    restartBackend: vi.fn(async () => null),
     events: vi.fn(() => () => {}),
   } as unknown as ApiClient;
 }

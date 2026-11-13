@@ -36,10 +36,26 @@ import (
 	"github.com/seesee010/webuntis-frontend/backend/internal/provider/sample"
 	"github.com/seesee010/webuntis-frontend/backend/internal/service"
 	"github.com/seesee010/webuntis-frontend/backend/internal/settings"
+	"github.com/seesee010/webuntis-frontend/backend/internal/update"
 	"github.com/seesee010/webuntis-frontend/backend/internal/webui"
 )
 
 var version = "dev"
+
+// webTarget is the "GOOS-ARCH" suffix of the web edition archive this
+// binary was released in, e.g. "linux-armv7". scripts/release.sh stamps
+// it; the updater uses it to fetch the same archive of a newer release.
+// It is empty for the desktop sidecar and for builds from source.
+var webTarget = ""
+
+// A web edition that restarts itself after an update hands its address
+// and token to the new process through these, so the open browser tab
+// keeps working. The environment is used because, unlike the command
+// line, other users of the machine cannot read it.
+const (
+	resumeAddrEnv  = "UNTISD_RESUME_ADDR"
+	resumeTokenEnv = "UNTISD_RESUME_TOKEN"
+)
 
 // Fixed address and token of -dev mode, which the Vite dev server uses
 // when the frontend runs in a plain browser without the Tauri shell.
@@ -70,6 +86,10 @@ func run() error {
 	flag.Parse()
 
 	if *showVersion {
+		if webTarget != "" {
+			fmt.Printf("untisd %s (web %s)\n", version, webTarget)
+			return nil
+		}
 		fmt.Println("untisd", version)
 		return nil
 	}
@@ -83,6 +103,11 @@ func run() error {
 	if *dev {
 		*addr, *token = devAddr, devToken
 	}
+	if a, t := os.Getenv(resumeAddrEnv), os.Getenv(resumeTokenEnv); a != "" && t != "" {
+		*addr, *token, *noBrowser = a, t, true
+	}
+	_ = os.Unsetenv(resumeAddrEnv)
+	_ = os.Unsetenv(resumeTokenEnv)
 	if *token == "" {
 		*token = randomToken()
 	}
@@ -109,8 +134,36 @@ func run() error {
 		ctx = exitWithStdin(ctx)
 	}
 
-	svc := service.New(store, newProvider, events.NewBus(), log)
-	handler := api.New(api.Config{Token: *token, Version: version, Origins: api.DefaultOrigins}, svc, store, log)
+	bus := events.NewBus()
+	svc := service.New(store, newProvider, bus, log)
+
+	source, err := update.SourceFrom(os.Getenv)
+	if err != nil {
+		log.Warn("ignoring the update source override", "err", err)
+	}
+	updater := update.New(update.Config{
+		Version: version, Source: source,
+		Detect:     func() update.Install { return update.Detect(update.OSEnv(*web, webTarget)) },
+		Enabled:    func() bool { return settings.UpdateCheck(store.Get()) },
+		Open:       openBrowser,
+		CanRestart: *web && canReexec,
+		Publish:    func(st update.Status) { bus.Publish(events.TypeUpdate, st) },
+		Log:        log,
+	})
+	store.Subscribe(func(settings.Document) { updater.SettingsChanged() })
+
+	restart := make(chan struct{}, 1)
+	apiCfg := api.Config{Token: *token, Version: version, Origins: api.DefaultOrigins, Updater: updater}
+	if *web && canReexec {
+		apiCfg.Restart = func() error {
+			select {
+			case restart <- struct{}{}:
+			default:
+			}
+			return nil
+		}
+	}
+	handler := api.New(apiCfg, svc, store, log)
 	if *web {
 		handler = withUI(handler, *token)
 	}
@@ -138,19 +191,40 @@ func run() error {
 	}
 
 	go svc.Run(ctx)
+	go updater.Run(ctx)
 	errc := make(chan error, 1)
 	go func() { errc <- srv.Serve(ln) }()
 
+	restarting := false
 	select {
 	case <-ctx.Done():
+	case <-restart:
+		restarting = true
+		// Let the answer to the restart request reach the browser.
+		time.Sleep(200 * time.Millisecond)
 	case err := <-errc:
 		if !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
 	}
-	shutdown, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	stop() // ends the refresh loop and any running CLI call
+	grace := 3 * time.Second
+	if restarting {
+		// Only the event streams are still open, and they never finish.
+		grace = 500 * time.Millisecond
+	}
+	shutdown, cancel := context.WithTimeout(context.Background(), grace)
 	defer cancel()
-	return srv.Shutdown(shutdown)
+	err = srv.Shutdown(shutdown)
+	if !restarting {
+		return err
+	}
+	// The event stream never ends on its own, so Shutdown times out;
+	// close what is left and start the new version on the same address.
+	_ = srv.Close()
+	exe := updater.Install().Exe
+	log.Info("restarting into the updated version", "exe", exe)
+	return reexec(exe, []string{resumeAddrEnv + "=" + ln.Addr().String(), resumeTokenEnv + "=" + *token})
 }
 
 // withUI serves the API under /api/ and the embedded frontend elsewhere.
@@ -175,7 +249,12 @@ func browserCommand(goos, url string) (string, []string) {
 
 func openBrowser(url string) error {
 	name, args := browserCommand(runtime.GOOS, url)
-	return exec.Command(name, args...).Start()
+	cmd := exec.Command(name, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }() // do not leave the opener behind as a zombie
+	return nil
 }
 
 // newProvider builds the provider selected in the settings.

@@ -1,5 +1,5 @@
 import { ApiError, type ApiClient } from "./api/client";
-import type { Change, ErrorInfo, Snapshot, Status } from "./api/types";
+import type { Change, ErrorInfo, Snapshot, Status, UpdateStatus } from "./api/types";
 import type { Bus } from "./bus";
 import { Signal, type ReadSignal } from "./reactive";
 import type { AppEvents } from "./app";
@@ -68,6 +68,9 @@ export class DataService {
             break;
           case "settings":
             this.bus.emit("settings-changed", undefined);
+            break;
+          case "update":
+            this.bus.emit("update", ev.data as UpdateStatus);
             break;
         }
       },
