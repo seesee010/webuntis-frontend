@@ -107,7 +107,9 @@ $R web linux arm 7 >/dev/null
 
 # notes: the changelog section of the version, without link references.
 notes=$($R notes "$V")
-grep -q "^First release." <<<"$notes" && echo "ok   notes start with the section text" || { echo "FAIL notes text"; fail=1; }
+grep -q "^First release." <<<"$($R notes 1.0.0)" && echo "ok   notes start with the section text" || { echo "FAIL notes text"; fail=1; }
+[[ $notes != "$($R notes 1.0.0)" || $V == 1.0.0 ]] && echo "ok   notes are those of this version" || { echo "FAIL notes of $V equal those of 1.0.0"; fail=1; }
+grep -q "^## \[" <<<"$notes" && { echo "FAIL notes run into the next version"; fail=1; } || echo "ok   notes stop at the next version"
 grep -q "^### Added" <<<"$notes" && echo "ok   notes keep subsections" || { echo "FAIL notes subsections"; fail=1; }
 grep -q "^\[$V\]:" <<<"$notes" && { echo "FAIL notes contain link refs"; fail=1; } || echo "ok   notes drop link references"
 grep -q "docs/install.md" <<<"$notes" && echo "ok   notes link the install guide" || { echo "FAIL notes install link"; fail=1; }
