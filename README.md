@@ -1,4 +1,13 @@
+<div align="center">
+
+<img src="desktop/icon.svg" width="96" height="96" alt="Untis app icon">
+
 # webuntis-frontend
+
+**Your WebUntis timetable as a fast, modular desktop app.**
+
+Built on top of the [`untis`](https://github.com/seesee010/webuntis-scraper) command line tool,
+with far more knobs than the WebUntis web interface.
 
 ![Made With:Agentic_Engineering](https://img.shields.io/badge/made%20with-Agentic_Engineering-red?style=plastic)
 [![CI](https://github.com/seesee010/webuntis-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/seesee010/webuntis-frontend/actions/workflows/ci.yml)
@@ -7,46 +16,56 @@
 ![Tauri](https://img.shields.io/badge/desktop-Tauri%202-24C8DB?logo=tauri&logoColor=white)
 [![License: GPL-2.0](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
-A modular desktop app for your WebUntis timetable, built on top of the
-[`untis`](https://github.com/seesee010/webuntis-scraper) command line tool.
+[Features](#-features) ·
+[Download](#-download) ·
+[Quick start](#-quick-start-from-source-sample-data) ·
+[Real timetable](#-using-your-real-timetable) ·
+[How it works](#-how-it-works) ·
+[Shortcuts](#-keyboard-shortcuts) ·
+[Development](#-development)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/timetable-dark.png">
+  <img src="docs/screenshots/timetable-light.png" width="900" alt="Week view of the timetable showing the built-in sample data">
+</picture>
+
+<sub>
+<b>This is a sample timetable, not a real one.</b>
+The screenshot shows the built-in sample data: the school, subjects, teachers and rooms are made up.
+</sub>
+
+</div>
+
+<br>
 
 The app never talks to WebUntis itself. Login, sessions, caching and every
 API call stay in the `untis` CLI; this app runs it, turns its JSON into a
-clean model and gives you a GUI with far more knobs than the WebUntis web
-interface: 127 settings in 20 sections, a rebindable shortcut for every
-command, and per-subject names, colours and emoji.
+clean model and gives you a GUI on top: 127 settings in 20 sections, a
+rebindable shortcut for every command, and per-subject names, colours and
+emoji.
 
+> [!NOTE]
 > **AI disclosure:** every issue and pull request in this repository opened by the user
 > [seesee010](https://github.com/seesee010) is fully AI generated, including the code,
 > commit messages and descriptions.
 
-## Features
+## ✨ Features
 
-- **Dashboard** with widgets you choose, order and size: now & next (with
-  progress and time left), agenda, upcoming changes, week stats, exams,
-  homework, absences, messages, the next break and recent notifications
-- **Timetable** by week or day, with a period-based or true-time scale,
-  parallel groups side by side, merged double lessons, a current-time line,
-  holidays and a detail dialog for every lesson
-- **Exams, homework, absences, messages and holidays** as list views, with
-  countdowns, totals and grouping. Homework can be ticked off and messages
-  marked read locally (this never changes WebUntis)
-- **Change notifications** for cancellations, substitutions, room changes,
-  new exams and more, as in-app messages or desktop notifications, with
-  quiet hours and a switch per change type
-- **Subjects your way**: rename, recolour, add an emoji, hide, filter with
-  only/except, and choose codes, full names or both
-- **Theming**: light/dark/system, palettes and presets, accent and per-state
-  colours, four ways to draw lesson states, fonts, density, radius and
-  custom CSS
-- **English and German**, first day of week, 12/24 h clock, date format and
-  relative dates
-- **Command palette** (Ctrl/Cmd+K) and keyboard shortcuts such as `g t` for
-  the timetable, all rebindable
-- **Sample data**: a fully fictional school is built in, so the app works
-  without any account
+| | |
+|---|---|
+| 🧩 **Dashboard** | Widgets you choose, order and size: now & next (with progress and time left), agenda, upcoming changes, week stats, exams, homework, absences, messages, the next break and recent notifications |
+| 🗓️ **Timetable** | By week or day, with a period-based or true-time scale, parallel groups side by side, merged double lessons, a current-time line, holidays and a detail dialog for every lesson |
+| 📚 **Lists** | Exams, homework, absences, messages and holidays as list views, with countdowns, totals and grouping. Homework can be ticked off and messages marked read locally (this never changes WebUntis) |
+| 🔔 **Change notifications** | Cancellations, substitutions, room changes, new exams and more, as in-app messages or desktop notifications, with quiet hours and a switch per change type |
+| 🎨 **Subjects your way** | Rename, recolour, add an emoji, hide, filter with only/except, and choose codes, full names or both |
+| 🌗 **Theming** | Light/dark/system, palettes and presets, accent and per-state colours, four ways to draw lesson states, fonts, density, radius and custom CSS |
+| 🌍 **Localisation** | English and German, first day of week, 12/24 h clock, date format and relative dates |
+| ⌨️ **Keyboard first** | Command palette (Ctrl/Cmd+K) and shortcuts such as `g t` for the timetable, all rebindable |
+| 🧪 **Sample data** | A fully fictional school is built in, so the app works without any account |
 
-## Download
+## 📦 Download
 
 Grab the latest version from the
 [releases page](https://github.com/seesee010/webuntis-frontend/releases/latest):
@@ -62,7 +81,7 @@ Grab the latest version from the
 Which file to pick and how to start it is explained in the
 [installation guide](docs/install.md).
 
-## Quick start from source (sample data)
+## 🚀 Quick start from source (sample data)
 
 Requirements: Go 1.23+, Node 22+ with pnpm, and Rust plus the
 [Tauri prerequisites](https://tauri.app/start/prerequisites/) for the
@@ -82,11 +101,13 @@ make backend-dev   # untisd on 127.0.0.1:47800 with sample data
 make dev           # Vite on http://localhost:1420
 ```
 
-The app starts with **sample data**: a made-up school, student, teachers
-and rooms, generated relative to the current week so that every lesson
-state, countdown and notification shows up.
+> [!TIP]
+> The app starts with **sample data**: a made-up school, student, teachers
+> and rooms, generated relative to the current week so that every lesson
+> state, countdown and notification shows up. It is the same data you see
+> in the screenshot above.
 
-## Using your real timetable
+## 🔑 Using your real timetable
 
 1. Install and set up the CLI once:
 
@@ -104,20 +125,17 @@ state, countdown and notification shows up.
 from the CLI (missing setup, rejected login, WebUntis unreachable) show up
 as a banner with a hint on what to do.
 
-## How it works
+## 🔧 How it works
 
-```
-┌──────────────────────────── desktop app (Tauri) ───────────────────────────┐
-│                                                                            │
-│  TypeScript frontend  ──HTTP + SSE (loopback, token)──▶  untisd (Go)       │
-│  modules: dashboard,                                     service: cache,   │
-│  timetable, settings, …                                  refresh, changes  │
-│                                                               │            │
-└───────────────────────────────────────────────────────────────┼────────────┘
-                                                                │ runs
-                                                     untis --json - --from … --to …
-                                                                │
-                                                             WebUntis
+```mermaid
+flowchart LR
+  subgraph app["Desktop app (Tauri)"]
+    fe["<b>TypeScript frontend</b><br>modules: dashboard,<br>timetable, settings, …"]
+    be["<b>untisd (Go)</b><br>service: cache,<br>refresh, changes"]
+    fe -- "HTTP + SSE<br>(loopback, token)" --> be
+  end
+  be -- "runs<br>untis --json - --from … --to …" --> cli["<b>untis CLI</b>"]
+  cli --> wu[("WebUntis")]
 ```
 
 - `desktop/src-tauri` is a thin Rust shell. It starts the Go backend as a
@@ -134,7 +152,7 @@ as a banner with a hint on what to do.
 See [docs/architecture.md](docs/architecture.md) for the details,
 including how to add a module.
 
-## Keyboard shortcuts
+## ⚡ Keyboard shortcuts
 
 | Keys | Action |
 |---|---|
@@ -148,7 +166,7 @@ including how to add a module.
 
 Every shortcut can be changed under **Settings › Keyboard shortcuts**.
 
-## Development
+## 💻 Development
 
 ```bash
 make test      # Go, TypeScript and Rust tests
@@ -158,6 +176,11 @@ make build     # release bundle
 
 Every change comes with tests, and CI must be green before a pull request
 is merged. Tests only use made-up data and never run the real `untis` CLI.
+
+<details>
+<summary><b>Where things live</b></summary>
+
+<br>
 
 | Path | What |
 |---|---|
@@ -173,7 +196,9 @@ is merged. Tests only use made-up data and never run the real `untis` CLI.
 | `desktop/src/i18n` | translations |
 | `desktop/src-tauri` | desktop shell |
 
-## Privacy
+</details>
+
+## 🔒 Privacy
 
 - The backend listens on the loopback interface only and requires a random
   per-process token.
@@ -182,6 +207,6 @@ is merged. Tests only use made-up data and never run the real `untis` CLI.
   Credentials stay with the `untis` CLI and never pass through this app.
 - Screenshots, fixtures and tests use only the built-in fictional data.
 
-## License
+## 📄 License
 
 [GNU General Public License v2.0](LICENSE).
