@@ -209,7 +209,12 @@ func run() error {
 		}
 	}
 	stop() // ends the refresh loop and any running CLI call
-	shutdown, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	grace := 3 * time.Second
+	if restarting {
+		// Only the event streams are still open, and they never finish.
+		grace = 500 * time.Millisecond
+	}
+	shutdown, cancel := context.WithTimeout(context.Background(), grace)
 	defer cancel()
 	err = srv.Shutdown(shutdown)
 	if !restarting {
