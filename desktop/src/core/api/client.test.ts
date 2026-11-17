@@ -28,6 +28,34 @@ describe("ApiClient", () => {
     expect(init.body).toBe('{"ui":{"theme":"dark"}}');
   });
 
+  it("streams events from the id it saw last and passes on the change ids", () => {
+    const sources: { url: string; listeners: Record<string, (m: MessageEvent<string>) => void> }[] = [];
+    vi.stubGlobal(
+      "EventSource",
+      class {
+        listeners: Record<string, (m: MessageEvent<string>) => void> = {};
+        constructor(readonly url: string) {
+          sources.push(this);
+        }
+        addEventListener(type: string, fn: (m: MessageEvent<string>) => void) {
+          this.listeners[type] = fn;
+        }
+        close() {}
+      },
+    );
+    const seen: unknown[] = [];
+    client.events((ev) => seen.push(ev), undefined, "1763370000000007");
+    expect(sources[0].url).toBe("http://127.0.0.1:1/api/events?token=tok&since=1763370000000007");
+
+    const send = (type: string, id: string) => sources[0].listeners[type]({ data: JSON.stringify({ type, at: "" }), lastEventId: id } as MessageEvent<string>);
+    send("changes", "1763370000000008");
+    send("snapshot", "1763370000000008"); // EventSource keeps the last id on every later event
+    expect(seen).toEqual([{ type: "changes", at: "", id: "1763370000000008" }, { type: "snapshot", at: "" }]);
+
+    client.events(() => {}); // no id yet: no since
+    expect(sources[1].url).toBe("http://127.0.0.1:1/api/events?token=tok");
+  });
+
   it("turns error bodies into ApiErrors", async () => {
     mockFetch(403, { error: { kind: "login", message: "bad password" } });
     const err = await client.overview().catch((e) => e);

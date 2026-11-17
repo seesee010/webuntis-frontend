@@ -145,14 +145,24 @@ export class ApiClient {
 
   /** Subscribes to the backend's server-sent events. Returns a function
    * that closes the stream. EventSource reconnects on its own. */
-  events(onEvent: (ev: BackendEvent) => void, onState?: (connected: boolean) => void): () => void {
-    const url = `${this.conn.baseUrl}/api/events?token=${encodeURIComponent(this.conn.token)}`;
+  /**
+   * Streams backend events. since is the id of the last change event this
+   * page saw (on an earlier visit); the backend first sends the change
+   * events published after it. On a reconnect EventSource sends the newest
+   * id itself (Last-Event-ID).
+   */
+  events(onEvent: (ev: BackendEvent) => void, onState?: (connected: boolean) => void, since?: string): () => void {
+    let url = `${this.conn.baseUrl}/api/events?token=${encodeURIComponent(this.conn.token)}`;
+    if (since) url += `&since=${encodeURIComponent(since)}`;
     const source = new EventSource(url);
     const types: BackendEvent["type"][] = ["snapshot", "changes", "error", "settings", "provider", "update"];
     for (const t of types) {
       source.addEventListener(t, (msg) => {
         try {
-          onEvent(JSON.parse((msg as MessageEvent<string>).data) as BackendEvent);
+          const m = msg as MessageEvent<string>;
+          const ev = JSON.parse(m.data) as BackendEvent;
+          if (t === "changes" && m.lastEventId) ev.id = m.lastEventId;
+          onEvent(ev);
         } catch {
           /* ignore malformed events */
         }

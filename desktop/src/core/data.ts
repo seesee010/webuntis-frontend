@@ -5,6 +5,29 @@ import { Signal, type ReadSignal } from "./reactive";
 import type { AppEvents } from "./app";
 
 /**
+ * Where the page remembers the id of the last change event it saw, so the
+ * next visit gets the changes found while no window was open. Per browser
+ * (or desktop webview), like the page itself.
+ */
+const LAST_CHANGE = "untis.lastChangeEvent";
+
+function readLastChange(): string | undefined {
+  try {
+    return localStorage.getItem(LAST_CHANGE) ?? undefined;
+  } catch {
+    return undefined; // storage blocked (private mode): only live changes then
+  }
+}
+
+function writeLastChange(id: string): void {
+  try {
+    localStorage.setItem(LAST_CHANGE, id);
+  } catch {
+    /* see readLastChange */
+  }
+}
+
+/**
  * Holds the data the views render: the background-refreshed overview
  * (dashboard and list views) and on-demand windows (timetable weeks).
  */
@@ -55,6 +78,8 @@ export class DataService {
             void this.loadStatus();
             break;
           case "changes":
+            // Remembered first: if showing the changes fails, they are not shown twice later.
+            if (ev.id) writeLastChange(ev.id);
             this.bus.emit("changes", (ev.data as Change[]) ?? []);
             break;
           case "error":
@@ -75,6 +100,7 @@ export class DataService {
         }
       },
       (connected) => this.connectedSig.set(connected),
+      readLastChange(),
     );
     void this.loadOverview();
     void this.loadStatus();

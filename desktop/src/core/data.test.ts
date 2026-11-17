@@ -103,4 +103,34 @@ describe("DataService", () => {
     expect(await data.refresh()).toEqual([{ kind: "cancelled" }]);
     expect(data.loading.get()).toBe(false);
   });
+
+  it("remembers the last change event so the next visit gets what it missed", () => {
+    localStorage.clear();
+    const first = setup();
+    first.data.start();
+    expect(vi.mocked(first.api.events).mock.calls[0][2]).toBeUndefined(); // nothing seen yet
+    first.emit({ type: "changes", at: "", data: [], id: "1763370000000042" });
+
+    const next = setup(); // a new page, e.g. the tab opened again the next morning
+    next.data.start();
+    expect(vi.mocked(next.api.events).mock.calls[0][2]).toBe("1763370000000042");
+    localStorage.clear();
+  });
+
+  it("still shows changes when the browser blocks storage", () => {
+    const get = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const set = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const { bus, data, emit } = setup();
+    const seen = vi.fn();
+    bus.on("changes", seen);
+    data.start();
+    emit({ type: "changes", at: "", data: [{ kind: "cancelled" }], id: "7" });
+    expect(seen).toHaveBeenCalledWith([{ kind: "cancelled" }]);
+    get.mockRestore();
+    set.mockRestore();
+  });
 });

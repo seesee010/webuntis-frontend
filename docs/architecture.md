@@ -57,7 +57,7 @@ cmd/untisd ──▶ api ──▶ service ──▶ provider ──┬──▶
 | POST | `/api/update/apply` | the update button: download and install; progress arrives as events |
 | POST | `/api/update/page` | open the release page in the browser |
 | POST | `/api/update/restart` | web edition: restart into the installed version |
-| GET | `/api/events` | server-sent events: `snapshot`, `changes`, `error`, `settings`, `provider`, `update` |
+| GET | `/api/events` | server-sent events: `snapshot`, `changes`, `error`, `settings`, `provider`, `update`; `changes` carry an `id`, and the last 50 are sent again to a client that connects with `Last-Event-ID` or `?since=` |
 
 On start `untisd` prints `{"port", "token", "version"}` as its first
 line. The Tauri shell reads it and passes it to the frontend

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -151,5 +152,76 @@ func TestEventsStream(t *testing.T) {
 		if line == "event: snapshot\n" {
 			return
 		}
+	}
+}
+
+// readEvents reads the stream until want events (not comments) arrived.
+func readEvents(t *testing.T, r *bufio.Reader, want int) []string {
+	t.Helper()
+	var out []string
+	var cur strings.Builder
+	for len(out) < want {
+		line, err := r.ReadString('\n')
+		if err != nil {
+			t.Fatalf("after %d events: %v", len(out), err)
+		}
+		switch {
+		case line == "\n" && cur.Len() > 0:
+			out = append(out, cur.String())
+			cur.Reset()
+		case strings.HasPrefix(line, ":") || line == "\n":
+		default:
+			cur.WriteString(line)
+		}
+	}
+	return out
+}
+
+func openEvents(t *testing.T, srv *httptest.Server, query string, lastID int64) *bufio.Reader {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Cleanup(cancel)
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/events?token="+token+query, nil)
+	if lastID != 0 {
+		req.Header.Set("Last-Event-ID", fmt.Sprint(lastID))
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { res.Body.Close() })
+	return bufio.NewReader(res.Body)
+}
+
+// Changes found while no window was open reach the next one that connects
+// with the id it saw last.
+func TestEventsReplayMissedChanges(t *testing.T) {
+	srv, svc := server(t)
+	bus := svc.Bus()
+	bus.Publish(events.TypeChanges, []string{"seen"})
+	seen, _, cancel := bus.SubscribeSince(1, 1)
+	cancel()
+	bus.Publish(events.TypeChanges, []string{"missed"}) // no client connected
+
+	// EventSource reconnecting: Last-Event-ID
+	got := readEvents(t, openEvents(t, srv, "", seen[0].ID), 1)
+	if !strings.Contains(got[0], fmt.Sprintf("id: %d\n", seen[0].ID+1)) || !strings.Contains(got[0], "event: changes\n") || !strings.Contains(got[0], `"missed"`) {
+		t.Errorf("Last-Event-ID replay = %q", got)
+	}
+
+	// a new page that remembered the id: ?since=, and Last-Event-ID wins over it
+	if got := readEvents(t, openEvents(t, srv, fmt.Sprintf("&since=%d", seen[0].ID-1), 0), 2); !strings.Contains(got[0], `"seen"`) || !strings.Contains(got[1], `"missed"`) {
+		t.Errorf("since replay = %q", got)
+	}
+	if got := readEvents(t, openEvents(t, srv, "&since=1", seen[0].ID), 1); !strings.Contains(got[0], `"missed"`) {
+		t.Errorf("Last-Event-ID must win over since: %q", got)
+	}
+
+	// without an id nothing old is replayed; live events still come, with their id
+	r := openEvents(t, srv, "&since=garbage", 0)
+	time.Sleep(50 * time.Millisecond) // let the handler subscribe
+	bus.Publish(events.TypeChanges, []string{"live"})
+	if got := readEvents(t, r, 1); !strings.Contains(got[0], `"live"`) || !strings.Contains(got[0], "id: ") {
+		t.Errorf("first event without an id = %q", got)
 	}
 }
