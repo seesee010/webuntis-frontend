@@ -67,6 +67,36 @@ func TestOnlyOverlappingDaysCompare(t *testing.T) {
 	}
 }
 
+func TestSlidingWindowDoesNotAddExamsOrHomework(t *testing.T) {
+	// the window moves forward one day; the exam at the new far edge and the
+	// homework that came into view with it were in WebUntis all along
+	old := &domain.Snapshot{Meta: domain.Meta{From: "2026-10-01", To: "2026-10-31"},
+		Exams:    []domain.Exam{{ID: "1", Date: "2026-10-31", Name: "Test", Subjects: []domain.Element{{Short: "MATH"}}}},
+		Homework: []domain.Homework{{ID: "h1", Date: "2026-09-25", DueDate: "2026-10-31", Text: "Read"}},
+	}
+	cur := &domain.Snapshot{Meta: domain.Meta{From: "2026-10-02", To: "2026-11-01"},
+		Exams:    []domain.Exam{{ID: "1", Date: "2026-10-31", Name: "Test", Subjects: []domain.Element{{Short: "MATH"}}}, {ID: "2", Date: "2026-11-01", Name: "Quiz", Subjects: []domain.Element{{Short: "ENG"}}}},
+		Homework: []domain.Homework{{ID: "h1", Date: "2026-09-25", DueDate: "2026-10-31", Text: "Read"}, {ID: "h2", Date: "2026-09-28", DueDate: "2026-11-01", Text: "Write"}},
+	}
+	if cs := Diff(old, cur); len(cs) != 0 {
+		t.Errorf("sliding window reported changes: %+v", cs)
+	}
+
+	// but a real new exam inside the shared days is still reported
+	cur.Exams = append(cur.Exams, domain.Exam{ID: "3", Date: "2026-10-20", Name: "Real", Subjects: []domain.Element{{Short: "CS"}}})
+	got := kinds(Diff(old, cur))
+	if got[ExamAdded].Detail != "Real" {
+		t.Errorf("missing the new exam: %+v", Diff(old, cur))
+	}
+
+	// homework given on a shared day is new even when it is due after the
+	// window ends, which is how the CLI selects it
+	cur.Homework = append(cur.Homework, domain.Homework{ID: "h3", Date: "2026-10-20", DueDate: "2026-11-15", Text: "Revise"})
+	if got := kinds(Diff(old, cur)); got[HomeworkAdded].Detail != "Revise" {
+		t.Errorf("missing homework given inside the shared days: %+v", Diff(old, cur))
+	}
+}
+
 func TestExamsHomeworkMessages(t *testing.T) {
 	old := &domain.Snapshot{Meta: domain.Meta{From: "2026-10-01", To: "2026-10-31"},
 		Exams:    []domain.Exam{{ID: "1", Date: "2026-10-09", Name: "Test", Subjects: []domain.Element{{Short: "MATH"}}}},
