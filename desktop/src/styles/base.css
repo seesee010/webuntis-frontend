@@ -192,6 +192,7 @@ input, select, textarea { font: inherit; color: inherit; }
 }
 .input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
 select.input { padding-right: 28px; }
+.input.invalid { border-color: var(--bad); }
 .input.num { width: 90px; }
 .input.hex { width: 96px; }
 textarea.input { width: 100%; resize: vertical; }

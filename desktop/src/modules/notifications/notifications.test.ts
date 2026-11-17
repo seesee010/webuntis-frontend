@@ -7,7 +7,7 @@ import { testContext } from "@/test/ctx";
 import { snapshot } from "@/test/fixtures";
 import subjects from "@/modules/subjects";
 import notifications, { announce, setNotifier, wanted } from "./index";
-import { describe as describeChange, inQuietHours } from "./describe";
+import { clockMinutes, describe as describeChange, inQuietHours, normalizeClock } from "./describe";
 import type { Notifier } from "./notifier";
 
 function fakeNotifier(permitted = true): Notifier & { sent: [string, string][] } {
@@ -40,6 +40,28 @@ describe("describe", () => {
     expect(inQuietHours("12:00", "22:00", "06:30")).toBe(false);
     expect(inQuietHours("13:00", "12:00", "14:00")).toBe(true);
     expect(inQuietHours("13:00", "", "")).toBe(false);
+  });
+
+  it("compares quiet hours as times, not strings", () => {
+    // "22:00" < "6:30" as strings, which made this range never apply
+    expect(inQuietHours("23:00", "22:00", "6:30")).toBe(true);
+    expect(inQuietHours("05:00", "22:00", "6:30")).toBe(true);
+    expect(inQuietHours("07:00", "22:00", "6:30")).toBe(false);
+    expect(inQuietHours("23:00", "22", "6")).toBe(true);
+    expect(inQuietHours("23:00", " 22.00 ", "06:30")).toBe(true);
+    // invalid input turns quiet hours off instead of comparing garbage
+    expect(inQuietHours("23:00", "10 pm", "06:30")).toBe(false);
+    expect(inQuietHours("23:00", "22:00", "25:00")).toBe(false);
+  });
+
+  it("parses and normalises clock input", () => {
+    expect(clockMinutes("6:30")).toBe(390);
+    expect(clockMinutes("24:00")).toBeNull();
+    expect(clockMinutes("12:60")).toBeNull();
+    expect(normalizeClock("6:30")).toBe("06:30");
+    expect(normalizeClock("22")).toBe("22:00");
+    expect(normalizeClock("  ")).toBe("");
+    expect(normalizeClock("10 pm")).toBeNull();
   });
 });
 
