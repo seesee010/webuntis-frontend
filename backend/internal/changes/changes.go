@@ -60,47 +60,118 @@ func diffLessons(old, cur *domain.Snapshot) []Change {
 	to := min(old.Meta.To, cur.Meta.To)
 	inBoth := func(d string) bool { return d >= from && d <= to }
 
-	before := map[string]domain.Lesson{}
+	// Parallel groups can share date, start, subject and info (two sport
+	// groups at 08:00), so a key holds a list and each new lesson is paired
+	// with one old lesson of its own key; see pairLessons.
+	before := map[string][]domain.Lesson{}
 	for _, l := range old.Lessons {
 		if inBoth(l.Date) {
-			before[lessonKey(l)] = l
+			k := lessonKey(l)
+			before[k] = append(before[k], l)
 		}
 	}
-	var out []Change
-	seen := map[string]bool{}
+	after := map[string][]domain.Lesson{}
+	var keys []string
 	for _, l := range cur.Lessons {
-		if !inBoth(l.Date) {
-			continue
+		if inBoth(l.Date) {
+			k := lessonKey(l)
+			if _, ok := after[k]; !ok {
+				keys = append(keys, k)
+			}
+			after[k] = append(after[k], l)
 		}
-		k := lessonKey(l)
-		seen[k] = true
-		c := Change{Date: l.Date, Start: l.Start, Subject: subject(l), Ref: l.ID}
-		prev, ok := before[k]
-		if !ok {
-			c.Kind = LessonAdded
-			out = append(out, c)
-			continue
-		}
-		switch {
-		case l.Cancelled && !prev.Cancelled:
-			c.Kind = Cancelled
-		case l.Removed && !prev.Removed:
-			c.Kind = Removed
-		case shorts(l.Teachers) != shorts(prev.Teachers) && !l.Cancelled:
-			c.Kind, c.Detail = Substitution, shorts(prev.Teachers)+" → "+shorts(l.Teachers)
-		case shorts(l.Rooms) != shorts(prev.Rooms) && !l.Cancelled:
-			c.Kind, c.Detail = RoomChange, shorts(prev.Rooms)+" → "+shorts(l.Rooms)
-		default:
-			continue
-		}
-		out = append(out, c)
 	}
-	for k, l := range before {
-		if !seen[k] {
-			out = append(out, Change{Kind: LessonDropped, Date: l.Date, Start: l.Start, Subject: subject(l), Ref: l.ID})
+	for k := range before {
+		if _, ok := after[k]; !ok {
+			keys = append(keys, k)
+		}
+	}
+
+	var out []Change
+	for _, k := range keys {
+		prevs, curs := before[k], after[k]
+		match := pairLessons(prevs, curs)
+		used := make([]bool, len(prevs))
+		for i, l := range curs {
+			c := Change{Date: l.Date, Start: l.Start, Subject: subject(l), Ref: l.ID}
+			if match[i] < 0 {
+				c.Kind = LessonAdded
+				out = append(out, c)
+				continue
+			}
+			used[match[i]] = true
+			prev := prevs[match[i]]
+			switch {
+			case l.Cancelled && !prev.Cancelled:
+				c.Kind = Cancelled
+			case l.Removed && !prev.Removed:
+				c.Kind = Removed
+			case shorts(l.Teachers) != shorts(prev.Teachers) && !l.Cancelled:
+				c.Kind, c.Detail = Substitution, shorts(prev.Teachers)+" → "+shorts(l.Teachers)
+			case shorts(l.Rooms) != shorts(prev.Rooms) && !l.Cancelled:
+				c.Kind, c.Detail = RoomChange, shorts(prev.Rooms)+" → "+shorts(l.Rooms)
+			default:
+				continue
+			}
+			out = append(out, c)
+		}
+		for j, l := range prevs {
+			if !used[j] {
+				out = append(out, Change{Kind: LessonDropped, Date: l.Date, Start: l.Start, Subject: subject(l), Ref: l.ID})
+			}
 		}
 	}
 	return out
+}
+
+// pairLessons pairs each lesson of curs with at most one of prevs, all with
+// the same lessonKey, and returns the index in prevs per lesson (-1: none).
+// The same ID wins first. IDs are not enough on their own: for grid lessons
+// the ID hashes the teachers too, so a substitution changes it. The rest are
+// paired by what identifies a parallel group best: the classes, then the
+// teachers, then the rooms; ties go by order, as before for a single lesson.
+func pairLessons(prevs, curs []domain.Lesson) []int {
+	match := make([]int, len(curs))
+	used := make([]bool, len(prevs))
+	for i := range match {
+		match[i] = -1
+	}
+	for i, l := range curs {
+		for j, p := range prevs {
+			if !used[j] && l.ID != "" && l.ID == p.ID {
+				match[i], used[j] = j, true
+				break
+			}
+		}
+	}
+	score := func(a, b domain.Lesson) int {
+		n := 0
+		if shorts(a.Classes) == shorts(b.Classes) {
+			n += 4
+		}
+		if shorts(a.Teachers) == shorts(b.Teachers) {
+			n += 2
+		}
+		if shorts(a.Rooms) == shorts(b.Rooms) {
+			n++
+		}
+		return n
+	}
+	for i, l := range curs {
+		if match[i] >= 0 {
+			continue
+		}
+		best, bestScore := -1, -1
+		for j, p := range prevs {
+			if s := score(l, p); !used[j] && s > bestScore {
+				best, bestScore = j, s
+			}
+		}
+		if best >= 0 {
+			match[i], used[best] = best, true
+		}
+	}
+	return match
 }
 
 func diffExams(old, cur *domain.Snapshot) []Change {
