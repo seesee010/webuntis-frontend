@@ -26,6 +26,30 @@ function setup(over: Partial<Record<keyof ApiClient, unknown>> = {}) {
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** A snapshot told apart by its provider name. */
+const from = (provider: string) => snapshot({ meta: { ...snapshot().meta, provider } });
+
+/** An api.overview that answers each call only when the test says so. */
+function controlledOverview() {
+  const calls: ReturnType<typeof deferred<ReturnType<typeof snapshot>>>[] = [];
+  const overview = vi.fn(() => {
+    const d = deferred<ReturnType<typeof snapshot>>();
+    calls.push(d);
+    return d.promise;
+  });
+  return { overview, calls };
+}
+
 describe("DataService", () => {
   it("loads overview and status on start and tracks the connection", async () => {
     const { data } = setup();
@@ -102,5 +126,95 @@ describe("DataService", () => {
     const { data } = setup();
     expect(await data.refresh()).toEqual([{ kind: "cancelled" }]);
     expect(data.loading.get()).toBe(false);
+  });
+
+  it("never lets an older overview answer replace a newer one", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data } = setup({ overview });
+    const first = data.loadOverview();
+    const second = data.loadOverview();
+    calls[1].resolve(from("new"));
+    await second;
+    calls[0].resolve(from("old")); // the slow first answer arrives last
+    await first;
+    expect(data.overview.get()?.meta.provider).toBe("new");
+  });
+
+  it("still shows an older answer while the newer one is outstanding", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data } = setup({ overview });
+    const first = data.loadOverview();
+    void data.loadOverview();
+    calls[0].resolve(from("old"));
+    await first;
+    expect(data.overview.get()?.meta.provider).toBe("old"); // better than nothing
+    calls[1].resolve(from("new"));
+    await tick();
+    expect(data.overview.get()?.meta.provider).toBe("new");
+  });
+
+  it("drops answers to loads started before a provider switch", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data, emit } = setup({ overview });
+    data.start(); // loads the sample overview
+    emit({ type: "provider", at: "" }); // the user switches to the CLI meanwhile
+    calls[0].resolve(from("sample"));
+    await tick();
+    expect(data.overview.get()).toBeNull();
+
+    emit({ type: "snapshot", at: "" }); // the CLI's first refresh is done
+    calls[1].resolve(from("cli"));
+    await tick();
+    expect(data.overview.get()?.meta.provider).toBe("cli");
+  });
+
+  it("does not let a load started before the refresh button overwrite its result", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data } = setup({ overview, refresh: vi.fn(async () => ({ snapshot: from("refreshed"), changes: [] })) });
+    const load = data.loadOverview();
+    await data.refresh();
+    calls[0].resolve(from("before"));
+    await load;
+    expect(data.overview.get()?.meta.provider).toBe("refreshed");
+  });
+
+  it("does not let an older failure hide a newer success", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data } = setup({ overview });
+    const first = data.loadOverview();
+    const second = data.loadOverview();
+    calls[1].resolve(from("new"));
+    await second;
+    calls[0].reject(new ApiError("unreachable", "timeout", 502));
+    await first;
+    expect(data.error.get()).toBeNull();
+    expect(data.overview.get()?.meta.provider).toBe("new");
+  });
+
+  it("keeps loading on until every load is done", async () => {
+    const { overview, calls } = controlledOverview();
+    const { data } = setup({ overview });
+    const first = data.loadOverview();
+    const second = data.loadOverview();
+    calls[1].resolve(from("new"));
+    await second;
+    expect(data.loading.get()).toBe(true);
+    calls[0].resolve(from("old"));
+    await first;
+    expect(data.loading.get()).toBe(false);
+  });
+
+  it("keeps the newer cached window when a request from before a snapshot event fails", async () => {
+    const slow = deferred<ReturnType<typeof snapshot>>();
+    const snapshotFn = vi.fn().mockReturnValueOnce(slow.promise).mockResolvedValue(snapshot());
+    const { data, emit } = setup({ snapshot: snapshotFn });
+    data.start();
+    const old = data.window("2026-10-05", "2026-10-11");
+    emit({ type: "snapshot", at: "" }); // the cache is cleared, the view asks again
+    await data.window("2026-10-05", "2026-10-11");
+    slow.reject(new ApiError("unreachable", "timeout", 502)); // the old request fails late
+    await expect(old).rejects.toThrow("timeout");
+    await data.window("2026-10-05", "2026-10-11");
+    expect(snapshotFn).toHaveBeenCalledTimes(2); // the newer entry is still cached
   });
 });
