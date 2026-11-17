@@ -107,6 +107,48 @@ func TestCancelledCallerDoesNotFailJoinedRequests(t *testing.T) {
 	}
 }
 
+// Browsing week after week must not keep every snapshot in memory.
+func TestSnapshotCacheIsBounded(t *testing.T) {
+	p := &countingProvider{name: "sample", room: "R1"}
+	svc, _ := setup(t, map[string]*countingProvider{"sample": p})
+	clock := time.Date(2026, 10, 5, 8, 0, 0, 0, time.UTC)
+	svc.now = func() time.Time { return clock }
+	week := func(i int) provider.Query {
+		from := clock.AddDate(0, 0, 7*i)
+		return provider.Query{From: from, To: from.AddDate(0, 0, 6)}
+	}
+
+	for i := range 3 * maxCachedWindows {
+		clock = clock.Add(time.Second)
+		if _, err := svc.Snapshot(context.Background(), week(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	svc.mu.Lock()
+	n := len(svc.cache)
+	svc.mu.Unlock()
+	if n != maxCachedWindows {
+		t.Errorf("cache holds %d windows, want %d", n, maxCachedWindows)
+	}
+	// the most recent window is still served from the cache
+	calls := p.calls.Load()
+	if _, err := svc.Snapshot(context.Background(), week(3*maxCachedWindows-1)); err != nil || p.calls.Load() != calls {
+		t.Errorf("latest window was evicted (calls %d -> %d, err %v)", calls, p.calls.Load(), err)
+	}
+
+	// expired windows are dropped on the next insert
+	clock = clock.Add(svc.ttl())
+	if _, err := svc.Snapshot(context.Background(), week(1000)); err != nil {
+		t.Fatal(err)
+	}
+	svc.mu.Lock()
+	n = len(svc.cache)
+	svc.mu.Unlock()
+	if n != 1 {
+		t.Errorf("after the TTL the cache holds %d windows, want only the new one", n)
+	}
+}
+
 func TestRefreshDetectsChanges(t *testing.T) {
 	p := &countingProvider{name: "sample", room: "R1"}
 	svc, _ := setup(t, map[string]*countingProvider{"sample": p})

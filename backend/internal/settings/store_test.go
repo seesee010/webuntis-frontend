@@ -149,6 +149,21 @@ func TestBackendDefaultsAndOverrides(t *testing.T) {
 	}
 }
 
+func TestBackendClampsTheWindow(t *testing.T) {
+	cases := []struct{ back, ahead, wantBack, wantAhead float64 }{
+		{100000, 100000, MaxWindowDays, MaxWindowDays}, // typo or hand-edited file
+		{-5, 0, 0, 1},
+		{366, 366, 366, 366},
+		{30, 60, 30, 60},
+	}
+	for _, c := range cases {
+		b := BackendFrom(Document{"backend": map[string]any{"daysBack": c.back, "daysAhead": c.ahead}})
+		if b.DaysBack != int(c.wantBack) || b.DaysAhead != int(c.wantAhead) {
+			t.Errorf("daysBack=%v daysAhead=%v -> %d/%d, want %v/%v", c.back, c.ahead, b.DaysBack, b.DaysAhead, c.wantBack, c.wantAhead)
+		}
+	}
+}
+
 func must(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
