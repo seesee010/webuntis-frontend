@@ -42,8 +42,9 @@ func NewErrorInfo(err error) *ErrorInfo {
 }
 
 type cacheEntry struct {
-	snap *domain.Snapshot
-	at   time.Time
+	snap    *domain.Snapshot
+	at      time.Time
+	started time.Time // when the provider call that produced snap started
 }
 
 type call struct {
@@ -151,16 +152,26 @@ func (s *Service) ttl() time.Duration {
 }
 
 // Snapshot returns the data for a window, from the cache when possible.
-// Concurrent requests for the same window share one provider call.
+// Concurrent requests for the same window share one provider call. A fresh
+// request only shares a fresh call: a non-fresh one may answer from the CLI's
+// own cache, which is exactly what "Refresh now" must not get.
 func (s *Service) Snapshot(ctx context.Context, q provider.Query) (*domain.Snapshot, error) {
 	key := q.From.Format("2006-01-02") + ".." + q.To.Format("2006-01-02")
+	flight := key
+	if q.Fresh {
+		flight += "|fresh"
+	}
 
 	s.mu.Lock()
 	if e, ok := s.cache[key]; ok && !q.Fresh && s.now().Sub(e.at) < s.ttl() {
 		s.mu.Unlock()
 		return e.snap, nil
 	}
-	if c, ok := s.inflight[key]; ok {
+	c, ok := s.inflight[key+"|fresh"] // a fresh call serves everyone
+	if !ok && !q.Fresh {
+		c, ok = s.inflight[key]
+	}
+	if ok {
 		s.mu.Unlock()
 		select {
 		case <-c.done:
@@ -169,9 +180,10 @@ func (s *Service) Snapshot(ctx context.Context, q provider.Query) (*domain.Snaps
 			return nil, ctx.Err()
 		}
 	}
-	c := &call{done: make(chan struct{})}
-	s.inflight[key] = c
+	c = &call{done: make(chan struct{})}
+	s.inflight[flight] = c
 	prov, gen := s.prov, s.gen
+	started := s.now()
 	s.mu.Unlock()
 
 	// The call is shared, so it must not die with one caller: an HTTP request
@@ -182,9 +194,12 @@ func (s *Service) Snapshot(ctx context.Context, q provider.Query) (*domain.Snaps
 	c.snap, c.err = prov.Snapshot(context.WithoutCancel(ctx), q)
 
 	s.mu.Lock()
-	delete(s.inflight, key)
-	if c.err == nil && gen == s.gen {
-		s.cache[key] = cacheEntry{snap: c.snap, at: s.now()}
+	delete(s.inflight, flight)
+	// A fresh and a non-fresh call can now run side by side; the one that
+	// started later wins, so a slow non-fresh answer cannot replace the result
+	// of a "Refresh now" that began after it.
+	if e, ok := s.cache[key]; c.err == nil && gen == s.gen && (!ok || !e.started.After(started)) {
+		s.cache[key] = cacheEntry{snap: c.snap, at: s.now(), started: started}
 	}
 	s.mu.Unlock()
 	close(c.done)
