@@ -5,6 +5,7 @@ import { defineModule } from "@/core/module";
 import type { Scope } from "@/core/reactive";
 import { collectSections, matches, type Field, type SettingsSection } from "@/core/schema";
 import { renderControl } from "./controls";
+import { planImport, preview, shareable } from "./transfer";
 import "./settings.css";
 
 /** The settings page. It knows nothing about individual settings: it
@@ -125,7 +126,24 @@ function toolbar(ctx: AppContext): HTMLElement[] {
     try {
       const doc = JSON.parse(await file.text());
       if (!doc || typeof doc !== "object" || Array.isArray(doc)) throw new Error(t("not a settings object"));
-      await ctx.settings.replace(doc);
+      const plan = planImport(ctx.settings.document.get(), doc);
+      let accept = false;
+      if (plan.risky.length) {
+        const label = (key: string) => {
+          const field = collectSections(ctx).flatMap((s) => s.fields).find((f) => f.key === key);
+          return field ? t(field.label) : key;
+        };
+        accept = confirm(
+          [
+            t("This file also changes settings that run programs or change how the app looks:"),
+            "",
+            ...plan.risky.map((r) => `${label(r.key)}: ${preview(r.value)}`),
+            "",
+            t("Apply these too? Cancel keeps your current values for them and imports everything else."),
+          ].join("\n"),
+        );
+      }
+      await ctx.settings.replace(plan.result(accept));
       ctx.toasts.show("success", t("Settings imported"), file.name);
     } catch (err) {
       ctx.toasts.show("error", t("Import failed"), (err as Error).message);
@@ -133,13 +151,14 @@ function toolbar(ctx: AppContext): HTMLElement[] {
     fileInput.value = "";
   });
 
-  const exportJSON = () => JSON.stringify(ctx.settings.document.get(), null, 2);
+  // Shared files leave out local data and this machine's CLI paths and arguments.
+  const exportJSON = () => JSON.stringify(shareable(ctx.settings.document.get()), null, 2);
   return [
-    h("button", { class: "btn", title: t("Copy all settings as JSON"), onclick: async () => {
+    h("button", { class: "btn", title: t("Copy the settings as JSON, without local data and CLI paths"), onclick: async () => {
       await navigator.clipboard.writeText(exportJSON());
       ctx.toasts.show("success", t("Settings copied to the clipboard"), undefined, 2000);
     } }, icon("download", 16), t("Copy JSON")),
-    h("button", { class: "btn", title: t("Save all settings to a file"), onclick: () => {
+    h("button", { class: "btn", title: t("Save the settings to a file, without local data and CLI paths"), onclick: () => {
       const a = h("a", {
         href: URL.createObjectURL(new Blob([exportJSON()], { type: "application/json" })),
         download: "untis-gui-settings.json",
