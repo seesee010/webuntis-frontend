@@ -67,6 +67,9 @@ func (s *Store) Backend() Backend {
 	return BackendFrom(s.Get())
 }
 
+// MaxWindowDays is the largest daysBack and daysAhead the backend accepts.
+const MaxWindowDays = 366
+
 // BackendFrom extracts the backend settings of a document.
 func BackendFrom(doc Document) Backend {
 	b := DefaultBackend()
@@ -82,12 +85,11 @@ func BackendFrom(doc Document) Backend {
 	if b.RefreshMinutes < 0 {
 		b.RefreshMinutes = 0
 	}
-	if b.DaysBack < 0 {
-		b.DaysBack = 0
-	}
-	if b.DaysAhead < 1 {
-		b.DaysAhead = 1
-	}
+	// The overview window is fetched on every refresh, so a typo or a
+	// hand-edited file must not make it years long. 366 is the settings UI's
+	// own maximum for both fields.
+	b.DaysBack = min(max(b.DaysBack, 0), MaxWindowDays)
+	b.DaysAhead = min(max(b.DaysAhead, 1), MaxWindowDays)
 	if b.CLI.Binary == "" {
 		b.CLI.Binary = "untis"
 	}

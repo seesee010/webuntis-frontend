@@ -142,6 +142,32 @@ func (s *Service) Status() Status {
 	return st
 }
 
+// maxCachedWindows caps the snapshot cache. The overview plus a few weeks the
+// user is browsing fit easily; older windows are fetched again when needed.
+const maxCachedWindows = 16
+
+// evictCache drops expired windows (Snapshot never serves them) and then the
+// oldest ones beyond maxCachedWindows, so browsing week after week in a
+// long-running session does not keep every snapshot in memory. The caller
+// holds s.mu.
+func (s *Service) evictCache() {
+	now, ttl := s.now(), s.ttl()
+	for key, e := range s.cache {
+		if now.Sub(e.at) >= ttl {
+			delete(s.cache, key)
+		}
+	}
+	for len(s.cache) > maxCachedWindows {
+		oldest := ""
+		for key, e := range s.cache {
+			if oldest == "" || e.at.Before(s.cache[oldest].at) {
+				oldest = key
+			}
+		}
+		delete(s.cache, oldest)
+	}
+}
+
 // ttl is how long a cached window stays valid without a refresh.
 func (s *Service) ttl() time.Duration {
 	if s.cfg.RefreshMinutes <= 0 {
@@ -185,6 +211,7 @@ func (s *Service) Snapshot(ctx context.Context, q provider.Query) (*domain.Snaps
 	delete(s.inflight, key)
 	if c.err == nil && gen == s.gen {
 		s.cache[key] = cacheEntry{snap: c.snap, at: s.now()}
+		s.evictCache()
 	}
 	s.mu.Unlock()
 	close(c.done)
