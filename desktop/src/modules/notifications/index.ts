@@ -5,7 +5,7 @@ import { h } from "@/core/dom";
 import { defineModule } from "@/core/module";
 import type { Field } from "@/core/schema";
 import { live } from "@/modules/dashboard/widgets";
-import { changeKinds, describe, inQuietHours } from "./describe";
+import { changeKinds, describe, inQuietHours, normalizeClock } from "./describe";
 import { createNotifier, type Notifier } from "./notifier";
 
 const HISTORY = "state.notifications.history";
@@ -117,8 +117,8 @@ export default defineModule({
         { key: "notifications.toastSeconds", type: "number", label: "Show in-app messages for", default: 8, min: 0, max: 120, unit: "s", description: "0 keeps them until dismissed." },
         { key: "notifications.desktop", type: "toggle", label: "Desktop notifications", default: false },
         { key: "notifications.test", type: "custom", label: "Test", default: null, render: testButton, wide: false },
-        { key: "notifications.quietFrom", type: "text", label: "Quiet hours from", description: "No desktop notifications between these times (HH:MM). Empty turns quiet hours off.", default: "", placeholder: "22:00" },
-        { key: "notifications.quietTo", type: "text", label: "Quiet hours until", default: "", placeholder: "06:30" },
+        { key: "notifications.quietFrom", type: "text", label: "Quiet hours from", description: "No desktop notifications between these times (HH:MM). Empty turns quiet hours off.", default: "", placeholder: "22:00", normalize: normalizeClock },
+        { key: "notifications.quietTo", type: "text", label: "Quiet hours until", default: "", placeholder: "06:30", normalize: normalizeClock },
         { key: "notifications.onlyUpcoming", type: "toggle", label: "Ignore changes in the past", default: true },
         { key: "notifications.maxSeparate", type: "number", label: "Group when more than", description: "More changes at once are summed up in one message.", default: 3, min: 1, max: 20, unit: "changes" },
         { key: "notifications.historySize", type: "number", label: "Remember the last", default: 50, min: 0, max: 500, unit: "changes" },

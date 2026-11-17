@@ -34,7 +34,14 @@ export type Field =
   | (Base<string> & { type: "select"; options: Option[] | ((ctx: AppContext) => Option[]) })
   | (Base<string> & { type: "segmented"; options: Option[] })
   | (Base<string> & { type: "color" })
-  | (Base<string> & { type: "text"; placeholder?: string; multiline?: boolean; monospace?: boolean })
+  | (Base<string> & {
+      type: "text";
+      placeholder?: string;
+      multiline?: boolean;
+      monospace?: boolean;
+      /** Cleans the input before it is saved; null marks it invalid and keeps the stored value. */
+      normalize?: (value: string) => string | null;
+    })
   | (Base<string[]> & { type: "list"; placeholder?: string })
   | (Base<string> & { type: "keybinding" })
   | (Base<unknown> & {

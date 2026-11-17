@@ -91,8 +91,24 @@ export function renderControl(field: Field, ctx: AppContext, scope: Scope): HTML
         ? h("textarea", { id, class: ["input", field.monospace && "mono"], attrs: { rows: "6", spellcheck: "false" } })
         : h("input", { type: "text", id, class: ["input", field.monospace && "mono"] });
       if (field.placeholder) input.placeholder = ctx.i18n.t(field.placeholder);
-      scope.add(s.watch<string>(field.key, (v) => (input.value = v)));
-      input.addEventListener("change", () => s.set(field.key, input.value));
+      const setInvalid = (invalid: boolean) => {
+        input.classList.toggle("invalid", invalid);
+        if (invalid) input.setAttribute("aria-invalid", "true");
+        else input.removeAttribute("aria-invalid");
+      };
+      scope.add(
+        s.watch<string>(field.key, (v) => {
+          input.value = v;
+          setInvalid(false);
+        }),
+      );
+      input.addEventListener("change", () => {
+        const value = field.normalize ? field.normalize(input.value) : input.value;
+        setInvalid(value === null);
+        if (value === null) return;
+        input.value = value;
+        s.set(field.key, value);
+      });
       return input;
     }
     case "list":

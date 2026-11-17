@@ -15,6 +15,7 @@ const fields: Field[] = [
   { key: "t.seg", type: "segmented", label: "Segmented", default: "x", options: [{ value: "x", label: "X" }, { value: "y", label: "Y" }] },
   { key: "t.color", type: "color", label: "Colour", default: "#112233" },
   { key: "t.text", type: "text", label: "Text", default: "hi" },
+  { key: "t.upper", type: "text", label: "Upper", default: "", normalize: (v) => (/^[a-z]*$/i.test(v) ? v.toUpperCase() : null) },
   { key: "t.list", type: "list", label: "List", default: ["one"] },
   { key: "t.hidden", type: "toggle", label: "Only with toggle", default: false, visibleIf: (s) => s.get("t.toggle") === true },
 ];
@@ -73,6 +74,19 @@ describe("controls", () => {
     text.value = "changed";
     text.dispatchEvent(new Event("change"));
     expect(c.settings.get("t.text")).toBe("changed");
+
+    const upper = control(c, "t.upper") as HTMLInputElement;
+    upper.value = "abc";
+    upper.dispatchEvent(new Event("change"));
+    expect(c.settings.get("t.upper")).toBe("ABC");
+    expect(upper.value).toBe("ABC");
+    upper.value = "a1";
+    upper.dispatchEvent(new Event("change"));
+    expect(c.settings.get("t.upper")).toBe("ABC"); // invalid input is not saved
+    expect(upper.getAttribute("aria-invalid")).toBe("true");
+    upper.value = "ok";
+    upper.dispatchEvent(new Event("change"));
+    expect(upper.hasAttribute("aria-invalid")).toBe(false);
 
     const list = control(c, "t.list");
     const input = list.querySelector("input")!;

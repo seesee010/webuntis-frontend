@@ -46,8 +46,36 @@ export function describe(i18n: I18n, c: Change, subjectName: (code: string) => s
   };
 }
 
-/** Is "HH:MM" inside a quiet-hours range that may wrap midnight? */
+/**
+ * Minutes after midnight for a clock time as people type it: "6:30", "06:30",
+ * "22", "22.00", with spaces around. null for anything else ("10 pm", "25:00").
+ */
+export function clockMinutes(value: string | null | undefined): number | null {
+  const m = /^(\d{1,2})(?:[:.](\d{2}))?$/.exec(String(value ?? "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  return h <= 23 && min <= 59 ? h * 60 + min : null;
+}
+
+/** "6:30" -> "06:30", "" stays "" (off), null for an invalid time. */
+export function normalizeClock(value: string): string | null {
+  if (value.trim() === "") return "";
+  const mins = clockMinutes(value);
+  if (mins === null) return null;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(Math.floor(mins / 60))}:${p(mins % 60)}`;
+}
+
+/**
+ * Is now inside a quiet-hours range that may wrap midnight? Compares minutes,
+ * not strings ("22:00" < "6:30" as strings). An empty or invalid end turns
+ * quiet hours off.
+ */
 export function inQuietHours(now: string, from: string, to: string): boolean {
-  if (!from || !to || from === to) return false;
-  return from < to ? now >= from && now < to : now >= from || now < to;
+  const n = clockMinutes(now);
+  const f = clockMinutes(from);
+  const t = clockMinutes(to);
+  if (n === null || f === null || t === null || f === t) return false;
+  return f < t ? n >= f && n < t : n >= f || n < t;
 }
