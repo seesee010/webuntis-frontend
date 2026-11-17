@@ -46,11 +46,6 @@ clean model and gives you a GUI on top: 128 settings in 20 sections, a
 rebindable shortcut for every command, and per-subject names, colours and
 emoji.
 
-> [!NOTE]
-> **AI disclosure:** every issue and pull request in this repository opened by the user
-> [seesee010](https://github.com/seesee010) is fully AI generated, including the code,
-> commit messages and descriptions.
-
 ## ✨ Features
 
 | | |
