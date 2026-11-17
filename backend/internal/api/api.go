@@ -11,11 +11,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/seesee010/webuntis-frontend/backend/internal/events"
 	"github.com/seesee010/webuntis-frontend/backend/internal/provider"
 	"github.com/seesee010/webuntis-frontend/backend/internal/service"
 	"github.com/seesee010/webuntis-frontend/backend/internal/settings"
@@ -244,16 +247,24 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "streaming unsupported")
 		return
 	}
+	// Change events published while the client was away are sent first:
+	// EventSource reports the last id it saw in Last-Event-ID when it
+	// reconnects, and a page that remembers it from an earlier visit passes
+	// it as ?since=.
+	missed, ch, cancel := s.svc.Bus().SubscribeSince(lastEventID(r), 32)
+	defer cancel()
+
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache")
 	h.Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, ": connected\n\n")
+	for _, ev := range missed {
+		writeEvent(w, ev)
+	}
 	flusher.Flush()
 
-	ch, cancel := s.svc.Bus().Subscribe(32)
-	defer cancel()
 	ping := time.NewTicker(25 * time.Second)
 	defer ping.Stop()
 	for {
@@ -267,11 +278,31 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			data, _ := json.Marshal(ev)
-			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data)
+			writeEvent(w, ev)
 			flusher.Flush()
 		}
 	}
+}
+
+// writeEvent writes one server-sent event, with its id if it has one.
+func writeEvent(w io.Writer, ev events.Event) {
+	if ev.ID != 0 {
+		fmt.Fprintf(w, "id: %d\n", ev.ID)
+	}
+	data, _ := json.Marshal(ev)
+	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", ev.Type, data)
+}
+
+// lastEventID is the id of the last change event the client has seen:
+// Last-Event-ID (sent by EventSource on a reconnect) wins over ?since=
+// (set by the page at its first connect). 0 when it has none.
+func lastEventID(r *http.Request) int64 {
+	for _, v := range []string{r.Header.Get("Last-Event-ID"), r.URL.Query().Get("since")} {
+		if id, err := strconv.ParseInt(strings.TrimSpace(v), 10, 64); err == nil && id > 0 {
+			return id
+		}
+	}
+	return 0
 }
 
 // --- updates ----------------------------------------------------------------

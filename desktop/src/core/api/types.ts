@@ -241,4 +241,6 @@ export interface BackendEvent<T = unknown> {
   type: "snapshot" | "changes" | "error" | "settings" | "provider" | "update";
   at: string;
   data?: T;
+  /** Set on change events: lets a client ask for what it missed (see ApiClient.events). */
+  id?: string;
 }
