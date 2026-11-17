@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@/core/api/types";
+import { today } from "@/core/dates";
 import { Scope } from "@/core/reactive";
 import { settle, testContext } from "@/test/ctx";
 import { snapshot } from "@/test/fixtures";
@@ -19,10 +20,20 @@ describe("messages", () => {
     expect(ids()).toEqual(["2", "3", "1"]);
     expect(el.querySelector(".card-title .chip")!.textContent).toBe("2 unread");
     (el.querySelector('[data-id="3"]') as HTMLButtonElement).click();
-    expect(ctx.settings.get("state.messages.read")).toEqual(["3"]);
+    expect(ctx.settings.get("state.messages.read")).toEqual([{ id: "3", date: today() }]);
     expect(el.querySelector(".card-title .chip")!.textContent).toBe("1 unread");
     ctx.settings.set("messages.onlyUnread", true);
     expect(ids()).toEqual(["2"]);
+  });
+
+  it("keeps read marks when the messages section failed", async () => {
+    const marks = [{ id: "2", date: today() }];
+    const failed = snapshot({ messages: [], errors: { messages: "timeout" } });
+    const ctx = await testContext(failed, [messages], { state: { messages: { read: marks } } });
+    await ctx.data.loadOverview();
+    messages.route!.render(ctx, new Scope(), new URLSearchParams());
+    await settle();
+    expect(ctx.settings.get("state.messages.read")).toEqual(marks);
   });
 
   it("widget lists unread messages", async () => {

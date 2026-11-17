@@ -32,7 +32,7 @@ function homeworkRow(ctx: AppContext, hw: Homework, st: ReturnType<typeof stateO
     title: i.t(hw.completed ? "Completed in WebUntis" : "Mark as done (only in this app)"),
     attrs: { "aria-label": i.t("Done") },
   });
-  box.addEventListener("change", () => done.set(hw.id, box.checked));
+  box.addEventListener("change", () => done.set(hw.id, box.checked, hw.dueDate));
   const due = daysBetween(t, hw.dueDate);
   return h(
     "div",
@@ -63,7 +63,8 @@ function renderHomework(ctx: AppContext, scope: Scope): HTMLElement {
     const snap = ctx.data.overview.get();
     if (!snap) return replace(body, h("div", { class: "skeleton" }));
     const { list, state, t, done } = prepare(ctx, snap.homework);
-    done.prune(snap.homework.map((hw) => hw.id));
+    // A failed section arrives as an empty list; it says nothing about which marks are stale.
+    if (!snap.errors?.homework) done.prune(snap.homework.map((hw) => hw.id));
     const open = list.filter((hw) => state(hw) !== "done").length;
     replace(
       body,
