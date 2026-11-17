@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { today } from "@/core/dates";
 import { Scope } from "@/core/reactive";
 import { settle, testContext } from "@/test/ctx";
 import { snapshot } from "@/test/fixtures";
@@ -35,6 +36,19 @@ describe("timetable view", () => {
     ctx.router.setParams({ date: "2026-10-14" });
     await settle();
     expect(input.value).toBe("2026-10-14");
+  });
+
+  it("falls back to today for an invalid date or mode in the URL", async () => {
+    history.replaceState(null, "", "#/timetable");
+    const ctx = await testContext(snapshot(), [timetable]);
+    const el = timetable.route!.render(ctx, new Scope(), new URLSearchParams({ date: "x", mode: "month" }));
+    await settle();
+    expect(el.querySelector<HTMLInputElement>("input[type=date]")!.value).toBe(today());
+    expect(el.querySelectorAll(".tt-day").length).toBeGreaterThan(0);
+
+    ctx.router.setParams({ date: "2026-1" });
+    await settle();
+    expect(el.querySelector<HTMLInputElement>("input[type=date]")!.value).toBe(today());
   });
 
   it("follows the settings", async () => {

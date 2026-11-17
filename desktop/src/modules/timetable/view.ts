@@ -1,6 +1,6 @@
 import type { AppContext } from "@/core/app";
 import type { Holiday, Lesson, Snapshot } from "@/core/api/types";
-import { addDays, isWeekend, isoWeek, minutes, nowMinutes, range, startOfWeek, today } from "@/core/dates";
+import { addDays, isISODate, isWeekend, isoWeek, minutes, nowMinutes, range, startOfWeek, today } from "@/core/dates";
 import { h, replace } from "@/core/dom";
 import { icon } from "@/core/icons";
 import type { Scope } from "@/core/reactive";
@@ -9,6 +9,16 @@ import { assignColumns, clipGrid, effectiveGrid, linearAxis, mergeAdjacent, peri
 
 type Mode = "week" | "day";
 
+/** The mode from the URL, or the default for anything else. */
+function routeMode(ctx: AppContext, value: string | null): Mode {
+  return value === "week" || value === "day" ? value : opt<Mode>(ctx, "defaultMode");
+}
+
+/** The date from the URL, or today for a missing or invalid one (?date=x). */
+function routeDate(value: string | null): string {
+  return isISODate(value) ? value : today();
+}
+
 /** Reads a timetable setting. */
 function opt<T>(ctx: AppContext, key: string): T {
   return ctx.settings.get<T>(`timetable.${key}`);
@@ -16,8 +26,8 @@ function opt<T>(ctx: AppContext, key: string): T {
 
 export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearchParams): HTMLElement {
   const t = ctx.i18n.t.bind(ctx.i18n);
-  let mode: Mode = (params.get("mode") as Mode) || opt<Mode>(ctx, "defaultMode");
-  let anchor = params.get("date") || today();
+  let mode = routeMode(ctx, params.get("mode"));
+  let anchor = routeDate(params.get("date"));
 
   const label = h("div", { class: "tt-label" });
   const grid = h("div", { class: "tt-grid-wrap" });
@@ -98,8 +108,8 @@ export function renderTimetable(ctx: AppContext, scope: Scope, params: URLSearch
     ctx.router.route,
     (r) => {
       if (r.path !== "/timetable") return;
-      const nextMode = (r.params.get("mode") as Mode) || opt<Mode>(ctx, "defaultMode");
-      const nextAnchor = r.params.get("date") || today();
+      const nextMode = routeMode(ctx, r.params.get("mode"));
+      const nextAnchor = routeDate(r.params.get("date"));
       if (nextMode === mode && nextAnchor === anchor) return;
       mode = nextMode;
       anchor = nextAnchor;
