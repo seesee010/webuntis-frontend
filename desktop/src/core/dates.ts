@@ -65,8 +65,20 @@ export function nowMinutes(d = new Date()): number {
   return d.getHours() * 60 + d.getMinutes();
 }
 
+/** True for a real calendar date written as "YYYY-MM-DD" (2026-02-30 is not). */
+export function isISODate(s: string | null | undefined): s is string {
+  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && toISO(parseISO(s)) === s;
+}
+
+/** Longest range() returns; far beyond any real window, it only stops runaways. */
+const MAX_RANGE_DAYS = 10_000;
+
+/** Every day from fromISO to toISO_, both included. Invalid dates give []. */
 export function range(fromISO: string, toISO_: string): string[] {
   const out: string[] = [];
-  for (let d = fromISO; d <= toISO_; d = addDays(d, 1)) out.push(d);
+  // An invalid date turns into "NaN-NaN-NaN", which is <= itself and never
+  // advances, so the loop would never end.
+  if (Number.isNaN(parseISO(fromISO).getTime()) || Number.isNaN(parseISO(toISO_).getTime())) return out;
+  for (let d = fromISO; d <= toISO_ && out.length < MAX_RANGE_DAYS; d = addDays(d, 1)) out.push(d);
   return out;
 }

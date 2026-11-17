@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, daysBetween, hhmm, isoWeek, minutes, range, startOfWeek, weekdayIndex } from "./dates";
+import { addDays, daysBetween, hhmm, isISODate, isoWeek, minutes, range, startOfWeek, weekdayIndex } from "./dates";
 
 describe("dates", () => {
   it("does calendar arithmetic across months and DST", () => {
@@ -25,5 +25,19 @@ describe("dates", () => {
     expect(minutes("07:50")).toBe(470);
     expect(hhmm(470)).toBe("07:50");
     expect(range("2026-10-30", "2026-11-02")).toHaveLength(4);
+  });
+
+  it("recognises real ISO dates only", () => {
+    expect(isISODate("2026-10-05")).toBe(true);
+    for (const bad of ["x", "2026-1", "2026-02-30", "2026-10-05x", "", null, undefined]) {
+      expect(isISODate(bad)).toBe(false);
+    }
+  });
+
+  it("returns no days for invalid input instead of looping forever", () => {
+    expect(range("NaN-NaN-NaN", "NaN-NaN-NaN")).toEqual([]);
+    expect(range("x", "2026-10-05")).toEqual([]);
+    expect(range("2026-10-05", "x")).toEqual([]);
+    expect(range("2026-10-05", "2026-10-04")).toEqual([]);
   });
 });
