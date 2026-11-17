@@ -19,6 +19,8 @@ export const de: Dictionary = {
   "Refresh now": "Jetzt aktualisieren",
   "Refreshed": "Aktualisiert",
   "Refresh failed": "Aktualisierung fehlgeschlagen",
+  "Settings could not be saved, trying again": "Einstellungen konnten nicht gespeichert werden, neuer Versuch folgt",
+  "A settings change was rejected and not saved": "Eine Änderung der Einstellungen wurde abgelehnt und nicht gespeichert",
   "No changes": "Keine Änderungen",
   "{n} change detected": "{n} Änderung erkannt",
   "{n} changes detected": "{n} Änderungen erkannt",

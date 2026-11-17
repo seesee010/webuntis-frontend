@@ -132,7 +132,7 @@ the loopback interface.
 | `bootstrap.ts` | `createApp()` wires all services; shared by the app and the tests |
 | `module.ts` | `ModuleDef` and the registry |
 | `schema.ts` | declarative settings fields |
-| `settings.ts` | settings store: instant local writes, batched merge patches, defaults |
+| `settings.ts` | settings store: instant local writes, batched merge patches (kept and sent again when a save fails), defaults |
 | `data.ts` | overview snapshot, on-demand windows, live updates |
 | `update.ts` | the updater's state for the update button and the status page |
 | `display.ts` | names, subject overrides, colours and filters — every view uses it |
