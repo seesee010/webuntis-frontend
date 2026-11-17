@@ -88,3 +88,50 @@ func TestExamsHomeworkMessages(t *testing.T) {
 		t.Error("diff against nothing must be empty")
 	}
 }
+
+// Two parallel groups share date, start and subject. Only group B changes;
+// group A must not be reported, and B's change must name B's teacher.
+func TestParallelLessonsWithTheSameSubject(t *testing.T) {
+	group := func(class, teacher, room string) domain.Lesson {
+		l := lesson("2026-10-05", "08:00", "PE", teacher, room)
+		l.Classes = []domain.Element{{Short: class}}
+		// like a grid lesson: the ID hashes the teachers, so a substitution changes it
+		l.ID = "PE-" + class + "-" + teacher
+		return l
+	}
+	old := snap("2026-10-05", "2026-10-09", group("1A", "AMB", "GYM1"), group("1B", "BRO", "GYM2"))
+
+	cancelledB := group("1B", "BRO", "GYM2")
+	cancelledB.Cancelled = true
+	cases := []struct {
+		name string
+		cur  []domain.Lesson
+		want []Change
+	}{
+		{"B cancelled", []domain.Lesson{group("1A", "AMB", "GYM1"), cancelledB},
+			[]Change{{Kind: Cancelled, Ref: "PE-1B-BRO"}}},
+		{"B cancelled, listed first", []domain.Lesson{cancelledB, group("1A", "AMB", "GYM1")},
+			[]Change{{Kind: Cancelled, Ref: "PE-1B-BRO"}}},
+		{"B substituted", []domain.Lesson{group("1A", "AMB", "GYM1"), group("1B", "IVE", "GYM2")},
+			[]Change{{Kind: Substitution, Detail: "BRO → IVE", Ref: "PE-1B-IVE"}}},
+		{"B room change", []domain.Lesson{group("1A", "AMB", "GYM1"), group("1B", "BRO", "AULA")},
+			[]Change{{Kind: RoomChange, Detail: "GYM2 → AULA", Ref: "PE-1B-BRO"}}},
+		{"B dropped", []domain.Lesson{group("1A", "AMB", "GYM1")},
+			[]Change{{Kind: LessonDropped, Ref: "PE-1B-BRO"}}},
+		{"group C added", []domain.Lesson{group("1A", "AMB", "GYM1"), group("1B", "BRO", "GYM2"), group("1C", "CAS", "GYM3")},
+			[]Change{{Kind: LessonAdded, Ref: "PE-1C-CAS"}}},
+		{"unchanged", []domain.Lesson{group("1B", "BRO", "GYM2"), group("1A", "AMB", "GYM1")}, nil},
+	}
+	for _, c := range cases {
+		got := Diff(old, snap("2026-10-05", "2026-10-09", c.cur...))
+		if len(got) != len(c.want) {
+			t.Errorf("%s: changes = %+v, want %+v", c.name, got, c.want)
+			continue
+		}
+		for i, w := range c.want {
+			if got[i].Kind != w.Kind || got[i].Detail != w.Detail || got[i].Ref != w.Ref {
+				t.Errorf("%s: change = %+v, want %+v", c.name, got[i], w)
+			}
+		}
+	}
+}
