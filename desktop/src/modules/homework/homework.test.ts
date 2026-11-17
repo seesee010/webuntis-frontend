@@ -47,11 +47,26 @@ describe("homework view", () => {
     const box = el.querySelector<HTMLInputElement>('[data-id="1"] .check')!;
     box.checked = true;
     box.dispatchEvent(new Event("change"));
-    expect(ctx.settings.get("state.homework.done")).toEqual(["1"]);
+    expect(ctx.settings.get("state.homework.done")).toEqual([{ id: "1", date: addDays(t, 2) }]);
     expect(el.querySelector(".card-title .chip")!.textContent).toBe("1 open");
 
     ctx.settings.set("homework.showCompleted", false);
     expect(ids()).toEqual(["2"]);
+  });
+
+  it("keeps done marks when the homework section failed or other data is shown", async () => {
+    const marks = { state: { homework: { done: [{ id: "1", date: t }, { id: "2", date: t }] } } };
+    const render = async (s: typeof snap) => {
+      const ctx = await testContext(s, [homework], marks);
+      await ctx.data.loadOverview();
+      homework.route!.render(ctx, new Scope(), new URLSearchParams());
+      await settle();
+      return ctx.settings.get("state.homework.done");
+    };
+    // the CLI could not fetch homework: an empty list with the reason in errors
+    expect(await render(snapshot({ homework: [], errors: { homework: "503 Service Unavailable" } }))).toEqual(marks.state.homework.done);
+    // sample data (or another account) with other ids
+    expect(await render(snapshot({ homework: [hw("sample-1", addDays(t, 1))] }))).toEqual(marks.state.homework.done);
   });
 
   it("widget shows only open work", async () => {

@@ -33,7 +33,7 @@ function messageRow(ctx: AppContext, m: Message): HTMLElement {
       class: ["list-row", "msg", !read && "unread"],
       dataset: { id: m.id },
       title: ctx.i18n.t(read ? "Mark as unread (only in this app)" : "Mark as read (only in this app)"),
-      onclick: () => !m.read && readSet(ctx).toggle(m.id),
+      onclick: () => !m.read && readSet(ctx).toggle(m.id, m.date),
     },
     h("span", { class: ["dot", !read && "ok"] }),
     h(
@@ -51,7 +51,8 @@ function renderMessages(ctx: AppContext, scope: Scope): HTMLElement {
   const render = () => {
     const snap = ctx.data.overview.get();
     if (!snap) return replace(body, h("div", { class: "skeleton" }));
-    readSet(ctx).prune(snap.messages.map((m) => m.id));
+    // A failed section arrives as an empty list; it says nothing about which marks are stale.
+    if (!snap.errors?.messages) readSet(ctx).prune(snap.messages.map((m) => m.id));
     const list = visibleMessages(ctx, snap.messages);
     const unread = snap.messages.filter((m) => !isRead(ctx, m)).length;
     replace(
