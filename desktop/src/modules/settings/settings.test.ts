@@ -136,4 +136,46 @@ describe("settings page", () => {
     expect(resetAll).toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it("imports without changing the CLI setup unless confirmed, and keeps local data", async () => {
+    const c = await testContext(snapshot(), [mod, settingsPage], {
+      backend: { cli: { binary: "/usr/bin/untis" } },
+      state: { homework: { done: [{ id: "1", date: "2026-11-17" }] } },
+    });
+    const replaceDoc = vi.spyOn(c.settings, "replace").mockResolvedValue();
+    const asked = vi.fn(() => false);
+    vi.stubGlobal("confirm", asked);
+    const el = settingsPage.route!.render(c, new Scope(), new URLSearchParams());
+    const input = el.querySelector<HTMLInputElement>('input[type="file"]')!;
+    // jsdom's File has no text(); the page only needs name and text()
+    const content = JSON.stringify({ ui: { density: "compact" }, backend: { cli: { binary: "/tmp/evil.sh" } } });
+    const file = { name: "theme.json", text: async () => content };
+    Object.defineProperty(input, "files", { value: [file] });
+    input.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(c.toasts.items.get().map((t) => t.title)).toContain("Settings imported"));
+
+    expect(asked).toHaveBeenCalledWith(expect.stringContaining("/tmp/evil.sh"));
+    expect(replaceDoc).toHaveBeenCalledWith({
+      ui: { density: "compact" },
+      backend: { cli: { binary: "/usr/bin/untis" } },
+      state: { homework: { done: [{ id: "1", date: "2026-11-17" }] } },
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it("copies the settings without local data and CLI paths", async () => {
+    const c = await testContext(snapshot(), [mod, settingsPage], {
+      ui: { density: "compact" },
+      backend: { cli: { configPath: "/home/anna/.config/untis/config.json" } },
+      state: { notifications: { history: [{ title: "MATH is cancelled" }] } },
+    });
+    const writeText = vi.fn(async (_text: string) => {});
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const el = settingsPage.route!.render(c, new Scope(), new URLSearchParams());
+    [...el.querySelectorAll<HTMLButtonElement>(".btn")].find((b) => b.textContent?.includes("Copy JSON"))!.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(JSON.parse(writeText.mock.calls[0][0])).toEqual({ ui: { density: "compact" }, backend: { cli: {} } });
+    vi.unstubAllGlobals();
+  });
 });
+

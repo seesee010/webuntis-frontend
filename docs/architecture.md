@@ -197,6 +197,11 @@ The whole document is stored by the backend. Besides module settings it
 holds `backend.*` (read by `untisd`), `keys.*` (shortcuts) and `state.*`
 (GUI-only marks such as homework ticked off).
 
+Export and Copy JSON leave out `state.*` and this machine's CLI program,
+arguments, config and credential files (`modules/settings/transfer.ts`).
+Import keeps both: it asks before a file changes the CLI program, its
+arguments, the files it reads or the custom stylesheet.
+
 ### Translations
 
 Strings are looked up gettext style: the English text is the key
