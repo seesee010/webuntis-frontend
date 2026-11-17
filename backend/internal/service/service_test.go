@@ -25,12 +25,22 @@ type countingProvider struct {
 	mu    sync.Mutex
 	room  string
 	err   error
+	// gate, when set, blocks non-fresh calls until it is closed.
+	gate  chan struct{}
+	fresh []bool // Fresh of every call, in order
 }
 
 func (p *countingProvider) Name() string { return p.name }
 
 func (p *countingProvider) Snapshot(ctx context.Context, q provider.Query) (*domain.Snapshot, error) {
 	p.calls.Add(1)
+	p.mu.Lock()
+	p.fresh = append(p.fresh, q.Fresh)
+	gate := p.gate
+	p.mu.Unlock()
+	if gate != nil && !q.Fresh {
+		<-gate
+	}
 	time.Sleep(p.delay)
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -104,6 +114,67 @@ func TestCancelledCallerDoesNotFailJoinedRequests(t *testing.T) {
 	}
 	if n := p.calls.Load(); n != 1 {
 		t.Errorf("provider called %d times, want 1", n)
+	}
+}
+
+// "Refresh now" while a background (non-fresh) call for the same window is
+// running must not get that call's possibly CLI-cached answer.
+func TestFreshRequestDoesNotJoinNonFreshCall(t *testing.T) {
+	gate := make(chan struct{})
+	p := &countingProvider{name: "sample", room: "R1", gate: gate}
+	svc, _ := setup(t, map[string]*countingProvider{"sample": p})
+	q := svc.OverviewQuery(false)
+
+	slow := make(chan *domain.Snapshot)
+	go func() {
+		snap, _ := svc.Snapshot(context.Background(), q)
+		slow <- snap
+	}()
+	for p.calls.Load() == 0 {
+		time.Sleep(time.Millisecond)
+	}
+
+	p.mu.Lock()
+	p.room = "R2"
+	p.mu.Unlock()
+	fq := q
+	fq.Fresh = true
+	type result struct {
+		snap *domain.Snapshot
+		err  error
+	}
+	got := make(chan result, 1)
+	go func() {
+		snap, err := svc.Snapshot(context.Background(), fq)
+		got <- result{snap, err}
+	}()
+	var snap *domain.Snapshot
+	select {
+	case r := <-got:
+		if r.err != nil {
+			t.Fatal(r.err)
+		}
+		snap = r.snap
+	case <-time.After(2 * time.Second):
+		close(gate)
+		t.Fatal("fresh request waited for the running non-fresh call instead of starting its own")
+	}
+	if got := snap.Lessons[0].Rooms[0].Short; got != "R2" {
+		t.Errorf("fresh request got room %s, want R2 from its own call", got)
+	}
+
+	// A non-fresh request that arrives now joins nothing stale: the fresh
+	// result is cached.
+	close(gate)
+	<-slow
+	cached, _ := svc.Snapshot(context.Background(), q)
+	if got := cached.Lessons[0].Rooms[0].Short; got != "R2" {
+		t.Errorf("slow non-fresh answer replaced the newer fresh result: room %s", got)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.fresh) != 2 || p.fresh[0] || !p.fresh[1] {
+		t.Errorf("provider calls (Fresh) = %v, want [false true]", p.fresh)
 	}
 }
 
