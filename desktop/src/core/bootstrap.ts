@@ -35,6 +35,13 @@ export async function createApp(api: ApiClient, modules: ModuleDef[]): Promise<A
   registerDefaults(ctx);
   await settings.load();
   bus.on("settings-changed", () => void settings.reload());
+  // The views show a change before it is saved, so a failed save must be visible.
+  settings.onSaveError = (err, retrying) =>
+    ctx.toasts.show(
+      retrying ? "warning" : "error",
+      ctx.i18n.t(retrying ? "Settings could not be saved, trying again" : "A settings change was rejected and not saved"),
+      (err as Error).message,
+    );
   return ctx;
 }
 
