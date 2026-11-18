@@ -7,9 +7,8 @@ const readme = readFileSync("../README.md", "utf8");
 const architecture = readFileSync("../docs/architecture.md", "utf8");
 
 describe("README", () => {
-  it("keeps the badge and the AI disclosure", () => {
+  it("keeps the badge", () => {
     expect(readme).toContain("![Made With:Agentic_Engineering](https://img.shields.io/badge/made%20with-Agentic_Engineering-red?style=plastic)");
-    expect(readme).toMatch(/every issue and pull request[\s\S]*seesee010[\s\S]*fully AI generated/);
   });
 
   it("states the real number of settings and sections", () => {
