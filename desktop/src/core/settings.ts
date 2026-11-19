@@ -4,7 +4,16 @@ import { Signal, type ReadSignal, type Unsubscribe } from "./reactive";
 
 type Path = string; // dot separated, e.g. "ui.theme.accent"
 
+/** A path segment that would reach the prototype rather than a setting. */
+const FORBIDDEN_SEGMENTS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** Settings paths are dot separated and must stay inside the document. */
+function isSafePath(path: Path): boolean {
+  return path.split(".").every((key) => key !== "" && !FORBIDDEN_SEGMENTS.has(key));
+}
+
 export function getPath(doc: unknown, path: Path): unknown {
+  if (!isSafePath(path)) return undefined;
   let cur = doc;
   for (const key of path.split(".")) {
     if (cur === null || typeof cur !== "object") return undefined;
@@ -15,6 +24,7 @@ export function getPath(doc: unknown, path: Path): unknown {
 
 /** Builds the nested merge patch {a: {b: value}} for "a.b". */
 export function patchFor(path: Path, value: unknown): SettingsDocument {
+  if (!isSafePath(path)) return {};
   const keys = path.split(".");
   const root: SettingsDocument = {};
   let cur = root;
@@ -26,6 +36,7 @@ export function patchFor(path: Path, value: unknown): SettingsDocument {
 }
 
 function setPath(doc: SettingsDocument, path: Path, value: unknown): SettingsDocument {
+  if (!isSafePath(path)) return doc;
   const out = structuredClone(doc);
   const keys = path.split(".");
   let cur = out as Record<string, unknown>;
@@ -36,6 +47,25 @@ function setPath(doc: SettingsDocument, path: Path, value: unknown): SettingsDoc
   const last = keys[keys.length - 1];
   if (value === null || value === undefined) delete cur[last];
   else cur[last] = value;
+  return out;
+}
+
+/**
+ * The patch that turns `cur` into `next`: keys `next` no longer has become
+ * null, because merging an object into another unions their keys and nothing
+ * else ever removes one. Keys are taken literally, so a subject code with a
+ * dot in it (`D.LK`) stays one key instead of becoming a nested path.
+ */
+export function diffObject(cur: unknown, next: Record<string, unknown>): SettingsDocument {
+  const isObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
+  const before = isObj(cur) ? cur : {};
+  const out: SettingsDocument = {};
+  for (const k of Object.keys(before)) {
+    if (!Object.prototype.hasOwnProperty.call(next, k)) out[k] = null;
+  }
+  for (const [k, v] of Object.entries(next)) {
+    out[k] = isObj(v) && isObj(before[k]) ? diffObject(before[k], v) : v;
+  }
   return out;
 }
 
@@ -112,7 +142,26 @@ export class SettingsStore {
   /** Sets a value; undefined or null resets it to its default. */
   set(path: Path, value: unknown): void {
     this.doc.set(setPath(this.doc.get(), path, value));
-    this.pending = combinePatches(this.pending, patchFor(path, value ?? null));
+    this.queue(patchFor(path, value ?? null));
+  }
+
+  /**
+   * Replaces the object stored at path, deleting the keys it lost.
+   *
+   * Unlike set(), an empty value is kept as an empty object rather than
+   * resetting the setting, and keys are compared literally: this is what
+   * per-subject overrides need, since their keys are subject codes and a code
+   * like `D.LK` cannot be addressed as a dotted path.
+   */
+  setObject(path: Path, value: Record<string, unknown>): void {
+    if (!isSafePath(path)) return;
+    const patch = diffObject(getPath(this.doc.get(), path), value);
+    this.doc.set(setPath(this.doc.get(), path, value));
+    this.queue(patchFor(path, patch));
+  }
+
+  private queue(patch: SettingsDocument): void {
+    this.pending = combinePatches(this.pending, patch);
     clearTimeout(this.timer);
     this.timer = setTimeout(() => void this.flush(), 250);
   }
